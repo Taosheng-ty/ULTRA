@@ -1,15 +1,54 @@
 import os,sys
 import random, json
-
+import numpy as np
+from math import pi, sqrt, exp
 def loadModelFromJson(model_desc):
     click_model = PositionBiasedModel()
+    print(model_desc)
     if model_desc['model_name'] == 'user_browsing_model':
         click_model = UserBrowsingModel()
     elif model_desc['model_name'] == 'cascade_model':
         click_model = CascadeModel()
+    elif model_desc['model_name'] == 'Attention_pbm':
+        click_model = Attention_pbm()
+        if "vetical" not in model_desc:
+            model_desc["vertical"]=0.1
+        click_model.vertical=model_desc["vertical"]
+        if "atten" not in model_desc:
+            model_desc["atten"]=0.2    
+        click_model.vertical=model_desc["vertical"]
+        click_model.atten=model_desc["atten"]
+    elif model_desc['model_name'] =='Attention_ubm':
+        click_model = Attention_ubm()
+        if "vetical" not in model_desc:
+            model_desc["vertical"]=0.1
+        click_model.vertical=model_desc["vertical"]
+        if "atten" not in model_desc:
+            model_desc["atten"]=0.2    
+        click_model.vertical=model_desc["vertical"]
+        click_model.atten=model_desc["atten"]   
+    elif model_desc['model_name'] =='Attention_ubm_multiply':
+        click_model = Attention_ubm_multiply()
+        if "vetical" not in model_desc:
+            model_desc["vertical"]=0.1
+        click_model.vertical=model_desc["vertical"]
+        if "atten" not in model_desc:
+            model_desc["atten"]=0.2    
+        click_model.vertical=model_desc["vertical"]
+        click_model.atten=model_desc["atten"]   
+    elif model_desc['model_name'] =='Attention_pbm_multiply':
+        click_model = Attention_pbm_multiply()
+        if "vetical" not in model_desc:
+            model_desc["vertical"]=0.1
+        click_model.vertical=model_desc["vertical"]
+        if "atten" not in model_desc:
+            model_desc["atten"]=0.2    
+        click_model.vertical=model_desc["vertical"]
+        click_model.atten=model_desc["atten"]          
     click_model.eta = model_desc['eta']
     click_model.click_prob = model_desc['click_prob']
     click_model.exam_prob = model_desc['exam_prob']
+
     click_model.setExamProb(click_model.eta)
     return click_model
 
@@ -18,7 +57,8 @@ class ClickModel:
         self.exam_prob = None
         self.setExamProb(eta)
         self.setClickProb(neg_click_prob, pos_click_prob, relevance_grading_num)
-
+        self.vertical=0.1
+        self.atten=1
     @property
     def model_name(self):
         return 'click_model'
@@ -118,6 +158,7 @@ class UserBrowsingModel(ClickModel):
         for i in range(len(self.original_rd_exam_table)):
             self.exam_prob.append([pow(x, eta) for x in self.original_rd_exam_table[i]])
 
+    
     def sampleClicksForOneList(self, label_list):
         click_list, exam_p_list, click_p_list = [], [], []
         last_click_rank = -1
@@ -142,6 +183,8 @@ class UserBrowsingModel(ClickModel):
             propensity_weights.append(pw)
         return propensity_weights
 
+
+  
     def sampleClick(self, rank, last_click_rank, relevance_label):
         if not relevance_label == int(relevance_label):
             print('RELEVANCE LABEL MUST BE INTEGER!')
@@ -163,6 +206,323 @@ class UserBrowsingModel(ClickModel):
                 exam_p = self.exam_prob[-1][idx]
         return exam_p
 
+    
+    
+
+class Attention_pbm(ClickModel):
+    @property
+    def model_name(self):
+        return 'Attention_pbm'
+
+    def setExamProb(self,eta):
+        self.eta = eta
+        self.original_exam_prob = [0.68, 0.61, 0.48, 0.34, 0.28, 0.20, 0.11, 0.10, 0.08, 0.06]
+        self.exam_prob = [pow(x, eta) for x in self.original_exam_prob]
+
+
+    def gauss(self,n=21,sigma=1):
+        r = range(-int(n/2),int(n/2)+1)
+        list_gau=[1 / (sigma * sqrt(2*pi)) * exp(-float(x)**2/(2*sigma**2)) for x in r]
+        list_gau=np.array(list_gau)
+        list_gau=list_gau/list_gau.max()
+        return list_gau
+    def sampleClicksForOneList(self, label_list):
+#         print("current click attenpbm")
+        click_list, exam_p_list, click_p_list = [], [], []
+#         print(self.atten,"self.atten")
+        types=self.for_vertical(label_list)
+        list_gau=self.gauss(n=21,sigma=self.atten)
+        for rank in range(len(label_list)):
+            click, exam_p, click_p = self.sampleClick(rank, label_list[rank],types,list_gau)
+            click_list.append(click)
+            exam_p_list.append(exam_p)
+            click_p_list.append(click_p)
+#             types.append(type_cur)
+        return click_list, exam_p_list, types
+
+    def estimatePropensityWeightsForOneList(self, click_list, use_non_clicked_data=False):
+        propensity_weights = []
+        for r in range(len(click_list)):
+            pw = 0.0
+            if use_non_clicked_data | click_list[r] > 0:
+                pw = 1.0/self.getExamProb(r) * self.getExamProb(0)
+            propensity_weights.append(pw)
+        return propensity_weights
+    def for_vertical(self,label_list):
+        types=np.random.choice(2,len(label_list),p=[1-self.vertical,self.vertical])
+        types=types.astype(np.float32)
+        return types
+
+    def sampleClick(self, rank, relevance_label,types,list_gau):
+        if not relevance_label == int(relevance_label):
+            print('RELEVANCE LABEL MUST BE INTEGER!')
+        exam_p = self.getExamProb(rank)
+        if types.sum()>0:
+            ind=np.where(types==1)[0]
+            distance=np.abs(rank-ind)
+
+            exam_p=exam_p*0.5+0.5*list_gau[10+distance.min()]
+        relevance_label = int(relevance_label) if relevance_label > 0 else 0
+        
+        
+        click_p = self.click_prob[relevance_label if relevance_label < len(self.click_prob) else -1]
+        click = 1 if random.random() < exam_p * click_p else 0
+        return click, exam_p, click_p
+
+    def getExamProb(self, rank):
+        return self.exam_prob[rank if rank < len(self.exam_prob) else -1]
+    
+    
+
+class Attention_pbm_multiply(ClickModel):
+    @property
+    def model_name(self):
+        return 'Attention_pbm'
+
+    def setExamProb(self,eta):
+        self.eta = eta
+        self.original_exam_prob = [0.68, 0.61, 0.48, 0.34, 0.28, 0.20, 0.11, 0.10, 0.08, 0.06]
+        self.exam_prob = [pow(x, eta) for x in self.original_exam_prob]
+
+
+    def gauss(self,n=21,sigma=1):
+        r = range(-int(n/2),int(n/2)+1)
+        list_gau=[1 / (sigma * sqrt(2*pi)) * exp(-float(x)**2/(2*sigma**2)) for x in r]
+        list_gau=np.array(list_gau)
+        list_gau=list_gau/list_gau.max()
+        return list_gau
+    def sampleClicksForOneList(self, label_list):
+#         print("current click attenpbm")
+        click_list, exam_p_list, click_p_list = [], [], []
+#         print(self.atten,"self.atten")
+        types=self.for_vertical(label_list)
+        list_gau=self.gauss(n=21,sigma=self.atten)
+        for rank in range(len(label_list)):
+            click, exam_p, click_p = self.sampleClick(rank, label_list[rank],types,list_gau)
+            click_list.append(click)
+            exam_p_list.append(exam_p)
+            click_p_list.append(click_p)
+#             types.append(type_cur)
+        return click_list, exam_p_list, types
+
+    def estimatePropensityWeightsForOneList(self, click_list, use_non_clicked_data=False):
+        propensity_weights = []
+        for r in range(len(click_list)):
+            pw = 0.0
+            if use_non_clicked_data | click_list[r] > 0:
+                pw = 1.0/self.getExamProb(r) * self.getExamProb(0)
+            propensity_weights.append(pw)
+        return propensity_weights
+    def for_vertical(self,label_list):
+        types=np.random.choice(2,len(label_list),p=[1-self.vertical,self.vertical])
+        types=types.astype(np.float32)
+        return types
+
+    def sampleClick(self, rank, relevance_label,types,list_gau):
+        if not relevance_label == int(relevance_label):
+            print('RELEVANCE LABEL MUST BE INTEGER!')
+        exam_p = self.getExamProb(rank)
+        if types.sum()>0:
+            ind=np.where(types==1)[0]
+            distance=np.abs(rank-ind)
+
+            exam_p=exam_p*list_gau[10+distance.min()]
+        relevance_label = int(relevance_label) if relevance_label > 0 else 0
+        
+        
+        click_p = self.click_prob[relevance_label if relevance_label < len(self.click_prob) else -1]
+        click = 1 if random.random() < exam_p * click_p else 0
+        return click, exam_p, click_p
+
+    def getExamProb(self, rank):
+        return self.exam_prob[rank if rank < len(self.exam_prob) else -1]
+    
+    
+class Attention_ubm(ClickModel):
+
+    @property
+    def model_name(self):
+        return 'Attention_ubm'
+
+    def setExamProb(self,eta):
+        self.eta = eta
+        self.original_rd_exam_table = [
+            [1.0],
+            [0.98, 1.0],
+            [1.0, 0.62, 0.95],
+            [1.0, 0.77, 0.42, 0.82],
+            [1.0, 0.92, 0.55, 0.31, 0.69],
+            [1.0, 0.96, 0.63, 0.4, 0.22, 0.54],
+            [1.0, 0.99, 0.73, 0.46, 0.29, 0.17, 0.47],
+            [1.0, 1.0, 0.89, 0.52, 0.35, 0.24, 0.14, 0.43],
+            [1.0, 1.0, 0.95, 0.68, 0.4, 0.29, 0.19, 0.12, 0.41],
+            [1.0, 1.0, 1.0, 0.96, 0.52, 0.36, 0.27, 0.18, 0.12, 0.43]
+        ]
+        self.exam_prob = []
+        for i in range(len(self.original_rd_exam_table)):
+            self.exam_prob.append([pow(x, eta) for x in self.original_rd_exam_table[i]])
+    def for_vertical(self,label_list):
+        types=np.random.choice(2,len(label_list),p=[1-self.vertical,self.vertical])
+        types=types.astype(np.float32)
+        return types
+    def gauss(self,n=21,sigma=1):
+        r = range(-int(n/2),int(n/2)+1)
+        list_gau=[1 / (sigma * sqrt(2*pi)) * exp(-float(x)**2/(2*sigma**2)) for x in r]
+        list_gau=np.array(list_gau)
+        list_gau=list_gau/list_gau.max()
+        return list_gau    
+    def sampleClicksForOneList(self, label_list):
+        click_list, exam_p_list, click_p_list = [], [], []
+        last_click_rank = -1
+        types=self.for_vertical(label_list)
+        list_gau=self.gauss(n=21,sigma=self.atten)
+        for rank in range(len(label_list)):
+            click, exam_p, click_p = self.sampleClick(rank, last_click_rank,label_list[rank],types,list_gau)
+            if click > 0:
+                last_click_rank = rank
+            click_list.append(click)
+            exam_p_list.append(exam_p)
+            click_p_list.append(click_p)
+        return click_list, exam_p_list, types
+    
+    
+    
+    
+    def estimatePropensityWeightsForOneList(self, click_list, use_non_clicked_data=False):
+        propensity_weights = []
+        last_click_rank = -1
+        for r in range(len(click_list)):
+            pw = 0.0
+            if use_non_clicked_data | click_list[r] > 0:
+                pw = 1.0/self.getExamProb(r, last_click_rank)
+            if click_list[r] > 0:
+                last_click_rank = r
+            propensity_weights.append(pw)
+        return propensity_weights
+
+
+  
+    def sampleClick(self, rank, last_click_rank, relevance_label,types,list_gau):
+        if not relevance_label == int(relevance_label):
+            print('RELEVANCE LABEL MUST BE INTEGER!')
+        relevance_label = int(relevance_label) if relevance_label > 0 else 0
+        exam_p = self.getExamProb(rank, last_click_rank)
+        if types.sum()>0:
+            ind=np.where(types==1)[0]
+            distance=np.abs(rank-ind)
+
+            exam_p=exam_p*0.5+0.5*list_gau[10+distance.min()]
+        click_p = self.click_prob[relevance_label if relevance_label < len(self.click_prob) else -1]
+        click = 1 if random.random() < exam_p * click_p else 0
+        return click, exam_p, click_p
+
+    def getExamProb(self, rank, last_click_rank):
+        distance = rank - last_click_rank
+        if rank < len(self.exam_prob):
+            exam_p = self.exam_prob[rank][distance-1]
+        else:
+            if distance > rank:
+                exam_p = self.exam_prob[-1][-1]
+            else:
+                idx = distance-1 if distance < len(self.exam_prob[-1])-1 else -2
+                exam_p = self.exam_prob[-1][idx]
+        return exam_p
+
+        
+    
+class Attention_ubm_multiply(ClickModel):
+
+    @property
+    def model_name(self):
+        return 'Attention_ubm_multiply'
+
+    def setExamProb(self,eta):
+        self.eta = eta
+        self.original_rd_exam_table = [
+            [1.0],
+            [0.98, 1.0],
+            [1.0, 0.62, 0.95],
+            [1.0, 0.77, 0.42, 0.82],
+            [1.0, 0.92, 0.55, 0.31, 0.69],
+            [1.0, 0.96, 0.63, 0.4, 0.22, 0.54],
+            [1.0, 0.99, 0.73, 0.46, 0.29, 0.17, 0.47],
+            [1.0, 1.0, 0.89, 0.52, 0.35, 0.24, 0.14, 0.43],
+            [1.0, 1.0, 0.95, 0.68, 0.4, 0.29, 0.19, 0.12, 0.41],
+            [1.0, 1.0, 1.0, 0.96, 0.52, 0.36, 0.27, 0.18, 0.12, 0.43]
+        ]
+        self.exam_prob = []
+        for i in range(len(self.original_rd_exam_table)):
+            self.exam_prob.append([pow(x, eta) for x in self.original_rd_exam_table[i]])
+    def for_vertical(self,label_list):
+        types=np.random.choice(2,len(label_list),p=[1-self.vertical,self.vertical])
+        types=types.astype(np.float32)
+        return types
+    def gauss(self,n=21,sigma=1):
+        r = range(-int(n/2),int(n/2)+1)
+        list_gau=[1 / (sigma * sqrt(2*pi)) * exp(-float(x)**2/(2*sigma**2)) for x in r]
+        list_gau=np.array(list_gau)
+        list_gau=list_gau/list_gau.max()
+        return list_gau    
+    def sampleClicksForOneList(self, label_list):
+        click_list, exam_p_list, click_p_list = [], [], []
+        last_click_rank = -1
+        types=self.for_vertical(label_list)
+#         print(self.atten,"self.atten")
+        list_gau=self.gauss(n=21,sigma=self.atten)
+        for rank in range(len(label_list)):
+            click, exam_p, click_p = self.sampleClick(rank, last_click_rank,label_list[rank],types,list_gau)
+            if click > 0:
+                last_click_rank = rank
+            click_list.append(click)
+            exam_p_list.append(exam_p)
+            click_p_list.append(click_p)
+        return click_list, exam_p_list, types
+    
+    
+    
+    
+    def estimatePropensityWeightsForOneList(self, click_list, use_non_clicked_data=False):
+        propensity_weights = []
+        last_click_rank = -1
+        for r in range(len(click_list)):
+            pw = 0.0
+            if use_non_clicked_data | click_list[r] > 0:
+                pw = 1.0/self.getExamProb(r, last_click_rank)
+            if click_list[r] > 0:
+                last_click_rank = r
+            propensity_weights.append(pw)
+        return propensity_weights
+
+
+  
+    def sampleClick(self, rank, last_click_rank, relevance_label,types,list_gau):
+        if not relevance_label == int(relevance_label):
+            print('RELEVANCE LABEL MUST BE INTEGER!')
+        relevance_label = int(relevance_label) if relevance_label > 0 else 0
+        exam_p = self.getExamProb(rank, last_click_rank)
+        if types.sum()>0:
+            ind=np.where(types==1)[0]
+            distance=np.abs(rank-ind)
+
+            exam_p=exam_p*list_gau[10+distance.min()]
+        click_p = self.click_prob[relevance_label if relevance_label < len(self.click_prob) else -1]
+        click = 1 if random.random() < exam_p * click_p else 0
+        return click, exam_p, click_p
+
+    def getExamProb(self, rank, last_click_rank):
+        distance = rank - last_click_rank
+        if rank < len(self.exam_prob):
+            exam_p = self.exam_prob[rank][distance-1]
+        else:
+            if distance > rank:
+                exam_p = self.exam_prob[-1][-1]
+            else:
+                idx = distance-1 if distance < len(self.exam_prob[-1])-1 else -2
+                exam_p = self.exam_prob[-1][idx]
+        return exam_p
+    
+    
+    
 class CascadeModel(ClickModel):
 
     @property
