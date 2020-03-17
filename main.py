@@ -50,7 +50,8 @@ tf.app.flags.DEFINE_boolean("test_while_train", False,
                             "Set to True to test models during the training process.")
 tf.app.flags.DEFINE_boolean("test_only", False,
                             "Set to True for testing models only.")
-
+tf.app.flags.DEFINE_boolean("output_train", False,
+                            "Set to True for output train metrics.")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -78,6 +79,7 @@ def create_model(session, exp_settings, data_set, forward_only):
 
 def train(exp_settings):
     # Prepare data.
+    print(FLAGS)
     print("Reading data in %s" % FLAGS.data_dir)
     train_set = utils.read_data(FLAGS.data_dir, 'train', FLAGS.max_list_cutoff)
     valid_set = utils.read_data(FLAGS.data_dir, 'valid', FLAGS.max_list_cutoff)
@@ -106,6 +108,15 @@ def train(exp_settings):
         #model.print_info()
 
         # Create data feed
+        
+        
+        
+        
+        train_valid=utils.find_class(exp_settings['valid_input_feed'])(model, FLAGS.batch_size, exp_settings['train_input_hparams'], sess)
+        
+        
+        
+        
         train_input_feed = utils.find_class(exp_settings['train_input_feed'])(model, FLAGS.batch_size, exp_settings['train_input_hparams'], sess)
         valid_input_feed = utils.find_class(exp_settings['valid_input_feed'])(model, FLAGS.batch_size, exp_settings['valid_input_hparams'], sess)
         test_input_feed = None
@@ -169,7 +180,20 @@ def train(exp_settings):
                     print("  test: %s" % (
                     ' '.join(['%s:%.3f' % (x.tag, x.simple_value) for x in test_summary.value])
                     ))
-
+                    
+                if FLAGS.output_train:
+                    
+                    
+                    train_summary = validate_model(train_set, train_valid)
+                    train_writer.add_summary(train_summary, model.global_step.eval())
+                    print("  train: %s" % (
+                        ' '.join(['%s:%.3f' % (x.tag, x.simple_value) for x in train_summary.value])
+                    ))
+                
+                
+                
+                
+                
                 # Save checkpoint if the objective metric on the validation set is better
                 if "objective_metric" in exp_settings:
                     for x in valid_summary.value:
