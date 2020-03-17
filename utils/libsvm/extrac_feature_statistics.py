@@ -7,8 +7,13 @@ FILE_NAMES = ['train.txt', 'test.txt', 'valid.txt']
 feature_scale = []
 
 for f in FILE_NAMES:
+	n=0
 	with open(DATA_PATH + f) as fin:
 		for line in fin:
+			n=n+1
+			if n%10000==0:
+				
+				print(n,"current lines",f,"current file")
 			arr = line.strip().split(' ')
 			for i in range(len(arr)-2):
 				arr2 = arr[i+2].split(':')
@@ -26,4 +31,4 @@ for f in FILE_NAMES:
 #output results
 with open(DATA_PATH + 'feature_scale.json', 'w') as fout:
 	json.dump(feature_scale, fout)
-#print(feature_scale)
+print(feature_scale)
