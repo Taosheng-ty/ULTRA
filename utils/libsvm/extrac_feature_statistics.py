@@ -2,7 +2,7 @@ import os,sys
 import json
 
 DATA_PATH = sys.argv[1]
-FILE_NAMES = ['train.txt', 'test.txt', 'valid.txt']
+FILE_NAMES = ['train.txt', 'test.txt', 'vali.txt']
 
 feature_scale = []
 

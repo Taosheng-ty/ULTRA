@@ -24,7 +24,7 @@ def read_one_instance(feature_fin, rank_score_fin):
 def prepare_one_set(feature_path, rank_score_path, output_path ,set_name):
     global max_label
     #read raw data and build data map
-    feature_fin = open(feature_path + set_name + '.txt')
+    feature_fin = open(feature_path + set_name + '.txtnormalized')
     rank_score_fin = open(rank_score_path + set_name + '.predict')
 
     qid_list = []
@@ -108,7 +108,7 @@ def main():
     INITIAL_RANK_PATH = sys.argv[2] # The path of the SVMrank outputs
     OUTPUT_PATH = sys.argv[3]
     FEATURE_SIZE = int(sys.argv[4]) # The number of letor features in total
-    SET_NAME = ['train','test','valid']
+    SET_NAME = ['train','test','vali']
 
     for set_name in SET_NAME:
         if not os.path.exists(OUTPUT_PATH + set_name + '/'):
