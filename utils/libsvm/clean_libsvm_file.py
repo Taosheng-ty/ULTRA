@@ -8,7 +8,11 @@ ignore_no_positive_query = bool(sys.argv[3])
 qid_list_data = {}
 qid_label_sum = {}
 with open(input_file) as fin:
+    n=0
     for line in fin:
+        n+=1
+        if n%10000==0:
+            print("cleaning lines ",n,"file ",input_file )
         arr = line.strip().split(' ')
         label = int(arr[0])
         qid = int(arr[1].split(':')[1])
@@ -23,9 +27,13 @@ with open(input_file) as fin:
 
 with open(output_file, 'w') as fout:
     sorted_qid_lists = sorted(qid_list_data.items(), key=lambda k: k[0])
+    n=0
     for qid_list in sorted_qid_lists:
         if ignore_no_positive_query and qid_label_sum[qid_list[0]] < 1:
             continue
+        n+=1
+        if n%10000==0:
+            print("writing after cleaning lines ",n,"file ",input_file )
         for line in qid_list[1]:
             fout.write(line)
             fout.write('\n')
