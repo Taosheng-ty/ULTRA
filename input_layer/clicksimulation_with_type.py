@@ -49,13 +49,15 @@ class ClickSimulationFeed_withtype(BasicInputFeed):
         
         print('Create simluated clicks feed')
         print(hparam_str)
+
         self.hparams.parse(hparam_str)
         self.click_model = None
         if not self.hparams.oracle_mode:
             with open(self.hparams.click_model_json) as fin:
                 model_desc = json.load(fin)
                 self.click_model = cm.loadModelFromJson(model_desc)
-        
+        str_name=self.hparams.click_model_json
+        self.name=str_name.split("/")[-1]       
         self.start_index = 0
         self.count = 1
         self.rank_list_size = model.rank_list_size
@@ -124,10 +126,16 @@ class ClickSimulationFeed_withtype(BasicInputFeed):
             for j in range(self.rank_list_size):
                 if docid_inputs[i][j] < 0:
                     docid_inputs[i][j] = letor_features_length
-
-
+        
+        f=open('/home/taoyang/research/research_everyday/research_log/20200323/click'+self.name+'.dat','a')
+        t_file=open('/home/taoyang/research/research_everyday/research_log/20200323/types+'+self.name+'.dat','a')
+        np.savetxt(f,np.array(labels),fmt='%i')
+        np.savetxt(t_file,np.array(types),fmt='%i')
+        f.close()
+        t_file.close()
         batch_docid_inputs = []
         batch_labels = []
+        
         batch_types=[]
         for length_idx in range(self.rank_list_size):
             # Batch encoder inputs are just re-indexed docid_inputs.

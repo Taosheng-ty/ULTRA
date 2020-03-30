@@ -235,7 +235,7 @@ class DLA_clicks(BasicAlgorithm):
                 # Add position information (one-hot vector)
                 click_feature = [tf.expand_dims(tf.zeros_like(self.labels[i]) , -1) for _ in range(2*list_size)]
                 click_feature[i] = tf.expand_dims(tf.ones_like(self.labels[i]) , -1)
-                click_feature[list_size:]=[tf.expand_dims(tf.ones_like(self.labels[i])*-1 , -1) for _ in range(list_size)]
+#                 click_feature[list_size:]=[tf.expand_dims(tf.ones_like(self.labels[i])*-1 , -1) for _ in range(list_size)]
                 click_feature[list_size:list_size+i] =[tf.expand_dims(self.labels[k] , -1) for k in range(i-1,-1,-1)]
 #                 click_feature[2*list_size:2*list_size+i+1]=[tf.expand_dims(self.types[k] , -1) for k in range(i,-1,-1)]
 #                 click_feature[3*list_size:3*list_size+list_size-i-1]=[tf.expand_dims(self.types[k] , -1) for k in range(i+1,list_size)]

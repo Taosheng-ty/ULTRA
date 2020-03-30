@@ -61,6 +61,7 @@ class DLA_atten(BasicAlgorithm):
             ranker_learning_rate=-1.0,         # The learning rate for ranker (-1 means same with learning_rate).
             ranker_loss_weight=1.0,            # Set the weight of unbiased ranking loss
             l2_loss=0.0,                    # Set strength for L2 regularization.
+            l1_loss=0.0,
             max_propensity_weight = -1,      # Set maximum value for propensity weights
             constant_propensity_initialization = False, # Set true to initialize propensity with constants.
             grad_strategy='ada',            # Select gradient strategy
@@ -76,7 +77,7 @@ class DLA_atten(BasicAlgorithm):
         else:
             self.ranker_learning_rate = tf.Variable(float(self.hparams.ranker_learning_rate), trainable=False)
         self.learning_rate = self.ranker_learning_rate
-        
+#         self.weighs_propen=
         # Feeds for inputs.
         self.is_training = tf.placeholder(tf.bool, name="is_train")
         self.docid_inputs = [] # a list of top documents
@@ -174,10 +175,12 @@ class DLA_atten(BasicAlgorithm):
     def separate_gradient_update(self):
         denoise_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "denoising_model")
         ranking_model_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "ranking_model")
-
+        self.weighs_propen=denoise_params
         if self.hparams.l2_loss > 0:
-            #for p in denoise_params:
-            #    self.exam_loss += self.hparams.l2_loss * tf.nn.l2_loss(p)
+            for p in denoise_params:
+#                 self.weighs_propen=p
+#                 p=tf.Print(p,[p],message="show the weights")
+                self.exam_loss += self.hparams.l1_loss * tf.reduce_sum(tf.abs(p))
             for p in ranking_model_params:
                 self.rank_loss += self.hparams.l2_loss * tf.nn.l2_loss(p)
         self.loss = self.exam_loss + self.hparams.ranker_loss_weight * self.rank_loss
@@ -235,7 +238,7 @@ class DLA_atten(BasicAlgorithm):
                 # Add position information (one-hot vector)
                 click_feature = [tf.expand_dims(tf.zeros_like(self.labels[i]) , -1) for _ in range(4*list_size)]
                 click_feature[i] = tf.expand_dims(tf.ones_like(self.labels[i]) , -1)
-                click_feature[list_size:]=[tf.expand_dims(tf.ones_like(self.labels[i])*-1 , -1) for _ in range(3*list_size)]
+#                 click_feature[list_size:]=[tf.expand_dims(tf.zeros_like(self.labels[i]) , -1) for _ in range(3*list_size)]
                 click_feature[list_size:list_size+i] =[tf.expand_dims(self.labels[k] , -1) for k in range(i-1,-1,-1)]
                 click_feature[2*list_size:2*list_size+i+1]=[tf.expand_dims(self.types[k] , -1) for k in range(i,-1,-1)]
                 click_feature[3*list_size:3*list_size+list_size-i-1]=[tf.expand_dims(self.types[k] , -1) for k in range(i+1,list_size)]
@@ -264,6 +267,8 @@ class DLA_atten(BasicAlgorithm):
             output_feed = [self.updates,    # Update Op that does SGD.
                             self.loss,    # Loss for this batch.
 #                            self.click_show,
+                           self.weighs_propen,
+                           self.global_step,
                             self.train_summary # Summarize statistics.
                             ]    
         else:
@@ -276,7 +281,9 @@ class DLA_atten(BasicAlgorithm):
         outputs = session.run(output_feed, input_feed)
         
         if not forward_only:
-#             print(outputs[2])
+#             print(outputs[3],"global step")
+#             if outputs[3]%50==0:
+#                 print(outputs[2])
             return outputs[1], None, outputs[-1]    # loss, no outputs, summary.
         else:
             return None, outputs[1], outputs[0]    # no loss, outputs, summary.

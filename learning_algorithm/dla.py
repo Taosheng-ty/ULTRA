@@ -212,8 +212,8 @@ class DLA(BasicAlgorithm):
                     output_data = input_data
                     current_size = input_vec_size
                     output_sizes = [
-                        #int((list_size+1)/2) + 1, 
-                        #int((list_size+1)/4) + 1,
+                        int((list_size+1)/2) + 1, 
+                        int((list_size+1)/4) + 1,
                         1
                     ]
                     for i in range(len(output_sizes)):

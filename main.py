@@ -79,7 +79,8 @@ def create_model(session, exp_settings, data_set, forward_only):
 
 def train(exp_settings):
     # Prepare data.
-    print(FLAGS)
+#     print(FLAGS)
+#     print("print flags,********",FLAGS.__dict__['__flags'])
     print("Reading data in %s" % FLAGS.data_dir)
     train_set = utils.read_data(FLAGS.data_dir, 'train', FLAGS.max_list_cutoff)
     valid_set = utils.read_data(FLAGS.data_dir, 'valid', FLAGS.max_list_cutoff)
@@ -111,8 +112,8 @@ def train(exp_settings):
         
         
         
-        
-        train_valid=utils.find_class(exp_settings['valid_input_feed'])(model, FLAGS.batch_size, exp_settings['train_input_hparams'], sess)
+        if FLAGS.output_train:
+            train_valid=utils.find_class(exp_settings['valid_input_feed'])(model, FLAGS.batch_size, exp_settings['train_input_hparams'], sess)
         
         
         

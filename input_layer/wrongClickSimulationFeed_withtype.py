@@ -24,7 +24,7 @@ import tensorflow as tf
 # We disable pylint because we need python3 compatibility.
 from six.moves import zip     # pylint: disable=redefined-builtin
 
-class ClickSimulationFeed(BasicInputFeed):
+class ClickSimulationFeed_withtype(BasicInputFeed):
     """Simulate clicks based on human annotations.
 
     This class implements a input layer for unbiased learning to rank experiments
@@ -55,8 +55,7 @@ class ClickSimulationFeed(BasicInputFeed):
             with open(self.hparams.click_model_json) as fin:
                 model_desc = json.load(fin)
                 self.click_model = cm.loadModelFromJson(model_desc)
-        str_name=self.hparams.click_model_json
-        self.name=str_name.split("/")[-1]  
+        
         self.start_index = 0
         self.count = 1
         self.rank_list_size = model.rank_list_size
@@ -65,7 +64,7 @@ class ClickSimulationFeed(BasicInputFeed):
         self.model = model
         self.global_batch_count = 0
     
-    def prepare_sim_clicks_with_index(self, data_set, index, docid_inputs, letor_features, labels, check_validation=True):
+    def prepare_sim_clicks_with_index(self, data_set, index, docid_inputs, letor_features, labels, types,check_validation=True):
         i = index
 
         # Generate clicks with click models.
@@ -74,10 +73,10 @@ class ClickSimulationFeed(BasicInputFeed):
         if self.hparams.oracle_mode:
             click_list = label_list
         else:
-            click_list, _, _ = self.click_model.sampleClicksForOneList(list(label_list))
+            click_list, _, types = self.click_model.sampleClicksForOneList(list(label_list))
             sample_count = 0
             while check_validation and sum(click_list) == 0 and sample_count < self.MAX_SAMPLE_ROUND_NUM:
-                click_list, _, _ = self.click_model.sampleClicksForOneList(list(label_list))
+                click_list, _, types_list = self.click_model.sampleClicksForOneList(list(label_list))
                 sample_count += 1
 
         # Check if data is valid
@@ -89,7 +88,7 @@ class ClickSimulationFeed(BasicInputFeed):
                 letor_features.append(data_set.features[data_set.initial_list[i][x]])
         docid_inputs.append(list([-1 if data_set.initial_list[i][x] < 0 else base+x for x in range(self.rank_list_size)]))
         labels.append(click_list)
-    
+        types.append(types_list)
     def get_batch(self, data_set, check_validation=False):
         """Get a random batch of data, prepare for step. Typically used for training.
 
@@ -113,20 +112,19 @@ class ClickSimulationFeed(BasicInputFeed):
         length = len(data_set.initial_list)
         docid_inputs, letor_features, labels = [], [], []
         rank_list_idxs = []
+        types=[]
         for _ in range(self.batch_size):
             i = int(random.random() * length)
             rank_list_idxs.append(i)
             self.prepare_sim_clicks_with_index(data_set, i,
-                                docid_inputs, letor_features, labels, check_validation)
+                                docid_inputs, letor_features, labels, types,check_validation)
         local_batch_size = len(docid_inputs)
         letor_features_length = len(letor_features)
         for i in range(local_batch_size):
             for j in range(self.rank_list_size):
                 if docid_inputs[i][j] < 0:
                     docid_inputs[i][j] = letor_features_length
-        f=open('/home/taoyang/research/research_everyday/research_log/20200323/click'+self.name+'.dat','a')
-        np.savetxt(f,np.array(labels),fmt='%i')
-        f.close()
+
 
         batch_docid_inputs = []
         batch_labels = []
@@ -139,12 +137,14 @@ class ClickSimulationFeed(BasicInputFeed):
             batch_labels.append(
                 np.array([labels[batch_idx][length_idx]
                         for batch_idx in range(local_batch_size)], dtype=np.float32))
+        batch_types=np.array(batch_types)
         # Create input feed map
         input_feed = {}
         input_feed[self.model.letor_features.name] = np.array(letor_features)
         for l in range(self.rank_list_size):
             input_feed[self.model.docid_inputs[l].name] = batch_docid_inputs[l]
             input_feed[self.model.labels[l].name] = batch_labels[l]
+            input_feed[self.model.types[l].name] = batch_types[:,l]
         # Create info_map to store other information
         info_map = {
             'rank_list_idxs' : rank_list_idxs,
