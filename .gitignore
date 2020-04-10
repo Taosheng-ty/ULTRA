@@ -103,3 +103,5 @@ venv.bak/
 # mypy
 .mypy_cache/
 /example/ClickModel/*
+example/offline_setting/eta_file/
+example/online_setting/eta_file/
