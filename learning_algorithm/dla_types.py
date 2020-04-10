@@ -61,6 +61,7 @@ class DLA_types(BasicAlgorithm):
             ranker_learning_rate=-1.0,         # The learning rate for ranker (-1 means same with learning_rate).
             ranker_loss_weight=1.0,            # Set the weight of unbiased ranking loss
             l2_loss=0.0,                    # Set strength for L2 regularization.
+            l1_loss=0.0,
             max_propensity_weight = -1,      # Set maximum value for propensity weights
             constant_propensity_initialization = False, # Set true to initialize propensity with constants.
             grad_strategy='ada',            # Select gradient strategy
@@ -84,6 +85,7 @@ class DLA_types(BasicAlgorithm):
                                 name="letor_features") # the letor features for the documents
         self.labels = []  # the labels for the documents (e.g., clicks)
         self.types=[]
+        self.clicks=[]
         for i in range(self.max_candidate_num):
             self.docid_inputs.append(tf.placeholder(tf.int64, shape=[None],
                                             name="docid_input{0}".format(i)))
@@ -91,6 +93,8 @@ class DLA_types(BasicAlgorithm):
                                             name="label{0}".format(i)))
             self.types.append(tf.placeholder(tf.float32, shape=[None],
                                             name="type{0}".format(i)))
+            self.clicks.append(tf.placeholder(tf.float32, shape=[None],
+                                            name="clicks{0}".format(i)))
         self.global_step = tf.Variable(0, trainable=False)
 
         # Select logits to prob function
@@ -107,13 +111,16 @@ class DLA_types(BasicAlgorithm):
                 metric_value = utils.make_ranking_metric_fn(metric, topn)(reshaped_labels, pad_removed_output, None)
                 tf.summary.scalar('%s_%d' % (metric, topn), metric_value, collections=['eval'])
 
+        self.rank_list_size = exp_settings['train_list_cutoff']
+        train_output = self.ranking_model(self.rank_list_size, scope='ranking_model')
+        self.propensity = self.DenoisingNet(self.rank_list_size, forward_only)
+        train_labels = self.labels[:self.rank_list_size]
+        evaluate_clicks=self.clicks[:self.rank_list_size]
+        reshaped_evaluate_clicks = tf.transpose(tf.convert_to_tensor(evaluate_clicks))
+        self.valid_click_metrics=self.click_loglikelihood(reshaped_evaluate_clicks,\
+                                                 self.propensity,train_output)
+        tf.summary.scalar('%s' % ("click likelyhood"), self.valid_click_metrics, collections=['eval'])
         if not forward_only:
-            # Build model
-            self.rank_list_size = exp_settings['train_list_cutoff']
-            train_output = self.ranking_model(self.rank_list_size, scope='ranking_model')
-            self.propensity = self.DenoisingNet(self.rank_list_size, forward_only)
-            train_labels = self.labels[:self.rank_list_size]
-
             print('Loss Function is ' + self.hparams.loss_func)
             # Select loss function
             self.loss_func = None
@@ -131,8 +138,13 @@ class DLA_types(BasicAlgorithm):
             self.propensity_weights = self.get_normalized_weights(self.logits_to_prob(self.propensity))
             self.rank_loss = self.loss_func(train_output, reshaped_train_labels, self.propensity_weights)
             pw_list = tf.unstack(self.propensity_weights, axis=1) # Compute propensity weights
+            self.ipw=[]
+            self.click_metrics=self.click_loglikelihood(reshaped_train_labels,\
+                                                     self.propensity,train_output)
+            tf.summary.scalar('click_metrics',self.click_metrics,collections=['train'])
             for i in range(len(pw_list)):
                 tf.summary.scalar('Inverse Propensity weights %d' % i, tf.reduce_mean(pw_list[i]), collections=['train'])
+                self.ipw.append(tf.reduce_mean(pw_list[i]))
             tf.summary.scalar('Rank Loss', tf.reduce_mean(self.rank_loss), collections=['train'])
 
             # Compute examination loss
@@ -174,7 +186,10 @@ class DLA_types(BasicAlgorithm):
     def separate_gradient_update(self):
         denoise_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "denoising_model")
         ranking_model_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "ranking_model")
-
+        self.weighs_propen=denoise_params
+        if self.hparams.l1_loss > 0:
+            for p in denoise_params:
+                self.exam_loss += self.hparams.l1_loss * tf.reduce_sum(tf.abs(p))
         if self.hparams.l2_loss > 0:
             #for p in denoise_params:
             #    self.exam_loss += self.hparams.l2_loss * tf.nn.l2_loss(p)
@@ -215,8 +230,8 @@ class DLA_types(BasicAlgorithm):
                     output_data = input_data
                     current_size = input_vec_size
                     output_sizes = [
-                        int((list_size+1)/2) + 1, 
-                        int((list_size+1)/4) + 1,
+#                         int((list_size+1)/2) + 1, 
+#                         int((list_size+1)/4) + 1,
                         1
                     ]
                     for i in range(len(output_sizes)):
@@ -231,9 +246,22 @@ class DLA_types(BasicAlgorithm):
                     return output_data
 
             output_propensity_list = []
+#             for i in range(list_size):
+#                 # Add position information (one-hot vector)
+#                 click_feature = [tf.expand_dims(tf.zeros_like(self.labels[i]) , -1) for _ in range(input_vec_size)]
+#                 click_feature[i] = tf.expand_dims(tf.ones_like(self.labels[i]) , -1)
+# #                 click_feature[list_size:]=[tf.expand_dims(tf.ones_like(self.labels[i])*-1 , -1) for _ in range(2*list_size)]
+# #                 click_feature[list_size:list_size+i] =[tf.expand_dims(self.labels[k] , -1) for k in range(i-1,-1,-1)]
+#                 if i>0:
+#                     click_feature[list_size]=tf.expand_dims(self.labels[i-1] , -1)
+# #                 click_feature[2*list_size:2*list_size+list_size-i-1]=[tf.expand_dims(self.types[k] , -1) for k in range(i+1,list_size)]
+#                 # Predict propensity with a simple network
+#                 output_propensity_list.append(propensity_network(tf.concat(click_feature, 1), i))           
+            
+            
             for i in range(list_size):
                 # Add position information (one-hot vector)
-                click_feature = [tf.expand_dims(tf.zeros_like(self.labels[i]) , -1) for _ in range(3*list_size)]
+                click_feature = [tf.expand_dims(tf.zeros_like(self.labels[i]) , -1) for _ in range(input_vec_size)]
                 click_feature[i] = tf.expand_dims(tf.ones_like(self.labels[i]) , -1)
 #                 click_feature[list_size:]=[tf.expand_dims(tf.ones_like(self.labels[i])*-1 , -1) for _ in range(2*list_size)]
 #                 click_feature[list_size:list_size+i] =[tf.expand_dims(self.labels[k] , -1) for k in range(i-1,-1,-1)]
@@ -241,7 +269,7 @@ class DLA_types(BasicAlgorithm):
                 click_feature[2*list_size:2*list_size+list_size-i-1]=[tf.expand_dims(self.types[k] , -1) for k in range(i+1,list_size)]
                 # Predict propensity with a simple network
                 output_propensity_list.append(propensity_network(tf.concat(click_feature, 1), i))
-            self.click_show=[click_feature[h][0] for h in range(3*list_size)]
+            self.click_show=[click_feature[h][0] for h in range(list_size)]
         return tf.concat(output_propensity_list,1)
 
     def step(self, session, input_feed, forward_only):
@@ -263,6 +291,10 @@ class DLA_types(BasicAlgorithm):
             input_feed[self.is_training.name] = True
             output_feed = [self.updates,    # Update Op that does SGD.
                             self.loss,    # Loss for this batch.
+                           self.weighs_propen,
+                           self.global_step,
+                           self.ipw,
+                           self.click_metrics,
 #                            self.click_show,
                             self.train_summary # Summarize statistics.
                             ]    
@@ -274,9 +306,12 @@ class DLA_types(BasicAlgorithm):
             ]    
 
         outputs = session.run(output_feed, input_feed)
-        
+#         print(outputs)
         if not forward_only:
-#             print(outputs[2])
+#             print("jeldddd")
+#             print(outputs[3],"global step")
+            if outputs[3]%50==0:
+                print(outputs[2],outputs[3],"global step",outputs[4],outputs[5])
             return outputs[1], None, outputs[-1]    # loss, no outputs, summary.
         else:
             return None, outputs[1], outputs[0]    # no loss, outputs, summary.
@@ -302,6 +337,31 @@ class DLA_types(BasicAlgorithm):
             loss = tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=label_dis) * tf.reduce_sum(labels, 1)
         return tf.reduce_sum(loss) / tf.reduce_sum(labels)
 
+    def click_loglikelihood(self,  labels, propensity,train_output, name=None):
+        """Computes listwise softmax loss with propensity weighting.
+
+        Args:
+            output: (tf.Tensor) A tensor with shape [batch_size, list_size]. Each value is
+            the ranking score of the corresponding example.
+            labels: (tf.Tensor) A tensor of the same shape as `output`. A value >= 1 means a
+            relevant example.
+            propensity_weights: (tf.Tensor) A tensor of the same shape as `output` containing the weight of each element. 
+            name: A string used as the name for this variable scope.
+
+        Returns:
+            (tf.Tensor) A single value tensor containing the loss.
+        """
+
+#         loss = None
+        with tf.name_scope(name, "click_loglikelihood"):
+            ob_prob=tf.nn.softmax(propensity)
+            rel_prob=tf.nn.softmax(train_output)
+            click_prob=ob_prob*rel_prob
+            click_prob_norm=click_prob/tf.reduce_sum(click_prob,axis=1,keep_dims=True)
+            label_dis = labels/ tf.reduce_sum(labels, 1, keep_dims=True)
+            entropy = tf.reduce_sum(tf.math.log(click_prob_norm)*label_dis,1)
+        return tf.reduce_mean(entropy)
+    
     def get_normalized_weights(self, propensity):
         """Computes listwise softmax loss with propensity weighting.
 
