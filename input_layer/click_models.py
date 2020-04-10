@@ -297,6 +297,7 @@ class Attention_pbm_multiply(ClickModel):
 #         print(self.atten,"self.atten")
         types=self.for_vertical(label_list)
         list_gau=self.gauss(n=21,sigma=self.atten)
+#         print(self.exam_prob)
         for rank in range(len(label_list)):
             click, exam_p, click_p = self.sampleClick(rank, label_list[rank],types,list_gau)
             click_list.append(click)
@@ -317,20 +318,22 @@ class Attention_pbm_multiply(ClickModel):
         types=np.random.choice(2,len(label_list),p=[1-self.vertical,self.vertical])
         types=types.astype(np.float32)
         return types
-
+    
     def sampleClick(self, rank, relevance_label,types,list_gau):
         if not relevance_label == int(relevance_label):
             print('RELEVANCE LABEL MUST BE INTEGER!')
         exam_p = self.getExamProb(rank)
+        
         if types.sum()>0:
             ind=np.where(types==1)[0]
             distance=np.abs(rank-ind)
-
+#             exam_p= self.getExamProb(distance.min())
             exam_p=exam_p*list_gau[10+distance.min()]
         relevance_label = int(relevance_label) if relevance_label > 0 else 0
         
         
         click_p = self.click_prob[relevance_label if relevance_label < len(self.click_prob) else -1]
+#         print(exam_p,"eampl",click_p ,"click_p ")
         click = 1 if random.random() < exam_p * click_p else 0
         return click, exam_p, click_p
 
@@ -503,7 +506,7 @@ class Attention_ubm_multiply(ClickModel):
         if types.sum()>0:
             ind=np.where(types==1)[0]
             distance=np.abs(rank-ind)
-
+            
             exam_p=exam_p*list_gau[10+distance.min()]
         click_p = self.click_prob[relevance_label if relevance_label < len(self.click_prob) else -1]
         click = 1 if random.random() < exam_p * click_p else 0
