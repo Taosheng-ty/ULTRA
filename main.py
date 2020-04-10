@@ -161,14 +161,16 @@ def train(exp_settings):
                     summary_list = []
                     batch_size_list = []
                     while it < len(data_set.initial_list):
-                        input_feed, info_map = data_input_feed.get_next_batch(it, data_set, check_validation=False)
+#                         print(it,len(data_set.initial_list))
+                        input_feed, info_map = data_input_feed.get_next_batch(it, data_set, check_validation=True)
+#                         print(input_feed, info_map)
                         _, _, summary = model.step(sess, input_feed, True)
                         summary_list.append(summary)
                         batch_size_list.append(len(info_map['input_list']))
                         it += batch_size_list[-1]
                         count_batch += 1.0
                     return utils.merge_TFSummary(summary_list, batch_size_list)
-                    
+#                 valid_click_summary = validate_model(valid_set, train_input_feed)    
                 valid_summary = validate_model(valid_set, valid_input_feed)
                 valid_writer.add_summary(valid_summary, model.global_step.eval())
                 print("  valid: %s" % (
@@ -250,7 +252,7 @@ def test(exp_settings):
         count_batch = 0.0
         batch_size_list = []
         while it < len(test_set.initial_list):
-            input_feed, info_map = test_input_feed.get_next_batch(it, test_set, check_validation=False)
+            input_feed, info_map = test_input_feed.get_next_batch(it, test_set, check_validation=True)
             _, output_logits, summary = model.step(sess, input_feed, True)
             summary_list.append(summary)
             batch_size_list.append(len(info_map['input_list']))
