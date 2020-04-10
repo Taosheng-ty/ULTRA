@@ -131,6 +131,9 @@ class DLA_clicks(BasicAlgorithm):
             self.propensity_weights = self.get_normalized_weights(self.logits_to_prob(self.propensity))
             self.rank_loss = self.loss_func(train_output, reshaped_train_labels, self.propensity_weights)
             pw_list = tf.unstack(self.propensity_weights, axis=1) # Compute propensity weights
+            self.click_metrics=self.click_loglikelihood(reshaped_train_labels,\
+                                                     self.propensity,train_output)
+            tf.summary.scalar('click_metrics',self.click_metrics,collections=['train'])
             for i in range(len(pw_list)):
                 tf.summary.scalar('Inverse Propensity weights %d' % i, tf.reduce_mean(pw_list[i]), collections=['train'])
             tf.summary.scalar('Rank Loss', tf.reduce_mean(self.rank_loss), collections=['train'])
@@ -371,7 +374,30 @@ class DLA_clicks(BasicAlgorithm):
                     loss += cur_label_weight * cur_pair_loss * cur_propensity
         batch_size = tf.shape(labels[0])[0]
         return tf.reduce_sum(loss) / tf.cast(batch_size, dtypes.float32) #/ (tf.reduce_sum(propensity_weights)+1)
+    def click_loglikelihood(self,  labels, propensity,train_output, name=None):
+        """Computes listwise softmax loss with propensity weighting.
 
+        Args:
+            output: (tf.Tensor) A tensor with shape [batch_size, list_size]. Each value is
+            the ranking score of the corresponding example.
+            labels: (tf.Tensor) A tensor of the same shape as `output`. A value >= 1 means a
+            relevant example.
+            propensity_weights: (tf.Tensor) A tensor of the same shape as `output` containing the weight of each element. 
+            name: A string used as the name for this variable scope.
+
+        Returns:
+            (tf.Tensor) A single value tensor containing the loss.
+        """
+
+#         loss = None
+        with tf.name_scope(name, "click_loglikelihood"):
+            ob_prob=tf.nn.softmax(propensity)
+            rel_prob=tf.nn.softmax(train_output)
+            click_prob=ob_prob*rel_prob
+            click_prob_norm=click_prob/tf.reduce_sum(click_prob,axis=1,keep_dims=True)
+            label_dis = labels/ tf.reduce_sum(labels, 1, keep_dims=True)
+            entropy = tf.reduce_sum(tf.math.log(click_prob_norm)*label_dis,1)
+        return tf.reduce_mean(entropy)
 
     def click_weighted_log_loss(self, output, labels, propensity_weights, name=None):
         """Computes pointwise sigmoid loss with propensity weighting.
