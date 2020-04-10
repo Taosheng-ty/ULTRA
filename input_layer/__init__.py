@@ -7,6 +7,6 @@ from .DeterministicOnlineSimulationFeed import *
 from .StochasticOnlineSimulationFeed import *
 from .clicksimulation_with_type import *
 from .InterleavingDeterministicOnlineSimulationFeed import *
-
+from .DirectLabelFeed_with_clicks import *
 
 

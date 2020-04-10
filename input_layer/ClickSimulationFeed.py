@@ -124,9 +124,9 @@ class ClickSimulationFeed(BasicInputFeed):
             for j in range(self.rank_list_size):
                 if docid_inputs[i][j] < 0:
                     docid_inputs[i][j] = letor_features_length
-        f=open('/home/taoyang/research/research_everyday/research_log/20200323/click'+self.name+'.dat','a')
-        np.savetxt(f,np.array(labels),fmt='%i')
-        f.close()
+#         f=open('/home/taoyang/research/research_everyday/research_log/20200323/click'+self.name+'.dat','a')
+#         np.savetxt(f,np.array(labels),fmt='%i')
+#         f.close()
 
         batch_docid_inputs = []
         batch_labels = []
