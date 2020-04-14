@@ -187,6 +187,7 @@ class DLA(BasicAlgorithm):
     def separate_gradient_update(self):
         denoise_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "denoising_model")
         ranking_model_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "ranking_model")
+        print(ranking_model_params,"ranking_model_params")
         self.weighs_propen=denoise_params
         if self.hparams.l1_loss > 0:
             for p in denoise_params:

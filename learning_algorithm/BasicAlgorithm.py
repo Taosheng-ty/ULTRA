@@ -93,6 +93,7 @@ class BasicAlgorithm(ABC):
 
         """
         output_scores = self.get_ranking_scores(self.docid_inputs[:list_size], self.is_training, scope)
+        ## should be size of (batch, len_seq)
         return tf.concat(output_scores,1)
     
     def get_ranking_scores(self, input_id_list, is_training=False, scope=None):
