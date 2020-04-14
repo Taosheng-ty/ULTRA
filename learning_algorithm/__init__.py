@@ -13,6 +13,6 @@ from .na import *
 from .dla_attention import *
 from .dla_clicks import *
 from .dla_types import *
-
+from .dla_accept_prob import *
 from .dbgd_interleave import *
 
