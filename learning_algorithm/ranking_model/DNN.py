@@ -11,7 +11,7 @@ class DNN(BasicRankingModel):
         Args:
             hparams_str: (String) The hyper-parameters used to build the network.
         """
-
+        print("build DNN")
         self.hparams = tf.contrib.training.HParams(
             hidden_layer_sizes=[512, 256, 128],        # Number of neurons in each layer of a ranking_model. 
             initializer='None'                         # Set parameter initializer
@@ -48,8 +48,10 @@ class DNN(BasicRankingModel):
                 if j != len(output_sizes)-1:
                     output_data = tf.nn.elu(output_data)
                 current_size = output_sizes[j]
-                
-            return tf.split(output_data, len(input_list), axis=0)
+            output=tf.split(output_data, len(input_list), axis=0) 
+            print(len(output),output[0].get_shape(),"len(output),output[0].get_shape()in DNN")
+            ## output should be a list [len_seq], and each item should be (batch,1)
+            return output
     
     def build_with_random_noise(self, input_list, noise_rate, is_training=False):
         """ Create the model
