@@ -113,6 +113,7 @@ class Dla_accept_prob(BasicAlgorithm):
             # Build model
         self.rank_list_size = exp_settings['train_list_cutoff']
         train_output = self.ranking_model(self.rank_list_size, scope='ranking_model')
+#         train_output = self.output[:,:self.rank_list_size]
         self.propensity = self.DenoisingNet(self.rank_list_size, forward_only)
         train_labels = self.labels[:self.rank_list_size]
         evaluate_clicks=self.clicks[:self.rank_list_size]
