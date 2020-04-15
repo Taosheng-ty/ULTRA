@@ -15,19 +15,14 @@ class MultiHeadAttention(tf.keras.layers.Layer):
             self.depth = d_model // self.num_heads
             with tf.variable_scope(tf.get_variable_scope() or "MultiHeadAttention",reuse=tf.AUTO_REUSE):
                 self.wq = tf.layers.Dense(d_model,activation='relu')
-                self.wk = tf.layers.Dense(d_model,activation='relu')
+                self.final = tf.layers.Dense(d_model,activation='relu')
                 self.wqq = tf.layers.Dense(d_model)
                 self.wkk= tf.layers.Dense(d_model)
                 self.wv = tf.layers.Dense(d_model,activation='relu')
                 self.batch_q=tf.layers.BatchNormalization()
                 self.batch_k=tf.layers.BatchNormalization()
-                self.batch_q=tf.layers.BatchNormalization()
-                self.dense = tf.layers.Dense(d_model)
-            #         self.wq = tf.keras.layers.Dense(d_model)
-            #         self.wk = tf.keras.layers.Dense(d_model)
-            #         self.wv = tf.keras.layers.Dense(d_model)
-
-            #     self.dense = tf.keras.layers.Dense(d_model)
+                self.batch_final=tf.layers.BatchNormalization()
+                self.dense = tf.layers.Dense(1)
 
         def split_heads(self, x, batch_size):
             """Split the last dimension into (num_heads, depth).
@@ -36,15 +31,15 @@ class MultiHeadAttention(tf.keras.layers.Layer):
             list_size=x.get_shape()[1]
             x = tf.reshape(x, (batch_size, list_size, self.num_heads, self.depth))
             return tf.transpose(x, perm=[0, 2, 1, 3])
-
-        def call(self, v, k, q, mask,is_training):
-            batch_size = tf.shape(q)[0]  
-            q = self.wqq(self.wq(self.batch_q(q)))  # (batch_size, seq_len, d_model)
-            k = self.wkk(self.wk(self.batch_k(k)))  # (batch_size, seq_len, d_model)
-            v = self.wv(v)  # (batch_size, seq_len, d_model)
-            slen=q.get_shape()[1]
+        
+        def call(self, v, k, x, mask,is_training):
+            batch_size = tf.shape(x)[0]  
+            x = self.wqq(self.wq(self.batch_q(x)))  # (batch_size, seq_len, d_model)
+#             k = self.wkk(self.wk(self.batch_k(k)))  # (batch_size, seq_len, d_model)
+#             v = self.wv(v)  # (batch_size, seq_len, d_model)
+            slen=x.get_shape()[1]
 #             print(q.get_shape(),"q.get_shape() befiore")
-            q = self.split_heads(q, batch_size)  # (batch_size, num_heads, seq_len_q, depth)
+            q = self.split_heads(x, batch_size)  # (batch_size, num_heads, seq_len_q, depth)
 #             k = self.split_heads(k, batch_size)  # (batch_size, num_heads, seq_len_k, depth)
 #             v = self.split_heads(v, batch_size)  # (batch_size, num_heads, seq_len_v, depth)
 #             print(q.get_shape(),"q.get_shape() after")
@@ -59,19 +54,24 @@ class MultiHeadAttention(tf.keras.layers.Layer):
             scaled_attention, attention_weights = scaled_dot_product_attention(
             q, k, v, mask,collec)
 
-            scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])  # (batch_size, seq_len_q, num_heads, depth)
+#             scaled_attention = tf.transpose(scaled_attention, perm=[0, 2, 1, 3])  # (batch_size, seq_len_q, num_heads, depth)
 
-            concat_attention = tf.reshape(scaled_attention, 
-                                      (batch_size, -1, self.d_model))  # (batch_size, seq_len_q, d_model)
-
-            output = self.dense(concat_attention)  # (batch_size, seq_len_q, d_model)
-
+#             concat_attention = tf.reshape(scaled_attention, 
+#                                       (batch_size, -1, self.d_model))  # (batch_size, seq_len_q, d_model)
+            q+=scaled_attention
+#             q=z_norm(q,1)
+            q=tf.reduce_mean(q,axis=1)
+            q=self.final(q)
+            output = self.dense(q)  # (batch_size, seq_len_q, 1)
+            output=tf.nn.softmax(output,axis=1)
             return output, attention_weights
 def point_wise_feed_forward_network(d_model, dff):
         return tf.keras.Sequential([
         tf.keras.layers.Dense(dff, activation='relu'),  # (batch_size, seq_len, dff)
         tf.keras.layers.Dense(d_model)  # (batch_size, seq_len, d_model)
         ])
+def z_norm(a,axis=-1,scale=1):
+            return (a-tf.reduce_mean(a,axis=axis,keepdims=True))/(tf.math.reduce_std(a,axis=axis,keepdims=True)*scale+1e-10)
 def scaled_dot_product_attention(q, k, v, mask,collec):
         """Calculate the attention weights.
         q, k, v must have matching leading dimensions.
@@ -89,8 +89,8 @@ def scaled_dot_product_attention(q, k, v, mask,collec):
         Returns:
         output, attention_weights
         """
-        q_length=tf.norm(q,ord=2, axis=3,keepdims=True)
-        k_length=tf.norm(k,ord=2, axis=3,keepdims=True)
+#         q_length=tf.norm(q,ord=2, axis=3,keepdims=True)
+#         k_length=tf.norm(k,ord=2, axis=3,keepdims=True)
         matmul_qk = tf.matmul(q, k, transpose_b=True)  # (..., seq_len_q, seq_len_k)
 #         matmul_qk=q_length*k_length
         print()
@@ -145,9 +145,12 @@ def scaled_dot_product_attention(q, k, v, mask,collec):
 
         #       def for_train():
         #       tf.summary.histogram("train scaled_attention_weights_betwq_summary",scaled_attention_weights_betwq_summary,collections=collec)
-        tf.summary.image("weights_different_entry_[H,S,S,1]",weights_different_entry,max_outputs=8,collections=collec)
-        tf.summary.image("weights_different_q_[B,H,S,1]",weights_different_q,max_outputs=8,collections=collec)
-        tf.summary.image("weights_different_Heads_[1,B,H,1]",weights_different_Heads,max_outputs=8,collections=collec)
+        tf.summary.image("weights_different_entry_[H,S,S,1]",\
+                         weights_different_entry,max_outputs=8,collections=collec)
+        tf.summary.image("weights_different_q_[B,H,S,1]",\
+                         weights_different_q,max_outputs=8,collections=collec)
+        tf.summary.image("weights_different_Heads_[1,B,H,1]",\
+                         weights_different_Heads,max_outputs=8,collections=collec)
         tf.summary.text("weights_first_portion_Heads_[1,B,H,1]",\
                         tf.as_string(weights_different_Heads[0,1,:,0]),collections=collec)
         tf.summary.tensor_summary('weights_first_portion_Heads_[1,B,H,1]',\
@@ -165,8 +168,8 @@ def scaled_dot_product_attention(q, k, v, mask,collec):
 
         #       for i in range(tf.shape(k)[1]):
         #           tf.summary.scalar('attention_heads'+str(i), scaled_attention_weights_betwq_summary[i], collections=[collect_scope])
-        attention_weights=attention_weights*scaled_attention_weights_withinq
-        attention_weights=attention_weights*scaled_attention_weights_betwq
+#         attention_weights=attention_weights*scaled_attention_weights_withinq
+#         attention_weights=attention_weights*scaled_attention_weights_betwq
         output = tf.matmul(attention_weights, v)  # (..., seq_len_q, depth_v)
         return output, attention_weights
 class Transformer(BasicRankingModel):
@@ -224,21 +227,26 @@ class Transformer(BasicRankingModel):
 
 #                 self.dropout1 = tf.keras.layers.Dropout(rate)
 #                 self.dropout2 = tf.keras.layers.Dropout(rate)
-                output, attention_weights=self.mha(x, x, x, mask, is_training)
+                output_logits, attention_weights=self.mha(x, x, x, mask, is_training)
 #                 print(attention_weights.get_shape(),"attention_weights.get_shape() before")
-                attention_weights=tf.reduce_sum(attention_weights,axis=1)
-                attention_weights=tf.reduce_sum(attention_weights,axis=1)
-                attention_weights=tf.transpose(attention_weights)
-                attention_weights=tf.expand_dims(attention_weights,-1)
-                
+#                 attention_weights=tf.reduce_sum(attention_weights,axis=1)
+#                 attention_weights=tf.reduce_sum(attention_weights,axis=1)
+#                 attention_weights=tf.transpose(attention_weights)
+#                 attention_weights=tf.expand_dims(attention_weights,-1)
+#                 output_logits=tf.reduce_sum(output_logits,axis=-1)
+#                 output_logits=tf.transpose(output_logits)
+#                 output_logits=tf.expand_dims(output_logits,-1) 
                 output=[]
                 for i in range(list_size):
-                    output.append(attention_weights[i,:,:])
-                print(attention_weights.get_shape(),output[0].get_shape(),"attention_weight.get_shape(),output[0].get_shape()")
+                    output.append(output_logits[:,i,:])
+#                 print(attention_weights.get_shape(),output[0].get_shape(),\
+#                       "attention_weight.get_shape(),output[0].get_shape()")
 #         return attention_weights[:,1,:,1]
         ##output should be (seq_len,batch,1)
 #                 output=tf.split(attention_weights, len(input_list), axis=0) 
         return output
+## output should be a list of list_size while each element is [Batch,1]
+
     def build_with_random_noise(self, input_list, noise_rate, is_training=False):
         """ Create the model
         
