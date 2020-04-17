@@ -52,7 +52,7 @@ class DLA(BasicAlgorithm):
             forward_only: Set true to conduct prediction only, false to conduct training.
         """
         print('Build DLA')
-
+        super(DLA, self).__init__(data_set, exp_settings, forward_only)
         self.hparams = tf.contrib.training.HParams(
             learning_rate=0.05,                 # Learning rate.
             max_gradient_norm=5.0,            # Clip gradients to this norm.
@@ -76,7 +76,7 @@ class DLA(BasicAlgorithm):
             self.ranker_learning_rate = tf.Variable(float(self.hparams.learning_rate), trainable=False)
         else:
             self.ranker_learning_rate = tf.Variable(float(self.hparams.ranker_learning_rate), trainable=False)
-        self.learning_rate = self.ranker_learning_rate
+        self.learning_rate = tf.Variable(float(self.hparams.learning_rate), trainable=False)
         
         # Feeds for inputs.
         self.is_training = tf.placeholder(tf.bool, name="is_train")
@@ -187,7 +187,9 @@ class DLA(BasicAlgorithm):
     def separate_gradient_update(self):
         denoise_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "denoising_model")
         ranking_model_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "ranking_model")
-        print(ranking_model_params,"ranking_model_params")
+        all_ranking_model_params = tf.get_collection(tf.GraphKeys.VARIABLES, "ranking_model")
+        print(ranking_model_params,"ranking_model_params_training")
+        print(all_ranking_model_params,"all_ranking_model_params")
         self.weighs_propen=denoise_params
         if self.hparams.l1_loss > 0:
             for p in denoise_params:
