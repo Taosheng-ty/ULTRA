@@ -52,7 +52,7 @@ class Dla_accept_prob(BasicAlgorithm):
             forward_only: Set true to conduct prediction only, false to conduct training.
         """
         print('Build Dla_accept_prob')
-
+        super(Dla_accept_prob, self).__init__(data_set, exp_settings, forward_only)
         self.hparams = tf.contrib.training.HParams(
             learning_rate=0.05,                 # Learning rate.
             max_gradient_norm=5.0,            # Clip gradients to this norm.
