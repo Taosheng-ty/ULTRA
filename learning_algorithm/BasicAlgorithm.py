@@ -42,6 +42,7 @@ class BasicAlgorithm(ABC):
         self.rank_list_size = None # the number of documents considered in each rank list.
         self.max_candidate_num = None # the maximum number of candidates for each query.
         self.optimizer_func = tf.train.AdagradOptimizer
+        self.model=None
         pass
 
     @abstractmethod
@@ -114,9 +115,11 @@ class BasicAlgorithm(ABC):
             PAD_embed = tf.zeros([1,self.feature_size],dtype=tf.float32)
             letor_features = tf.concat(axis=0,values=[self.letor_features, PAD_embed])
             input_feature_list = []
-
-            model = utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
-
+            if self.model==None:
+#             if True:
+                self.model = utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
+            model=self.model
+            
             for i in range(len(input_id_list)):
                 input_feature_list.append(tf.nn.embedding_lookup(letor_features, input_id_list[i]))
             return model.build(input_feature_list, is_training)
