@@ -8,7 +8,7 @@ See the following paper for more information.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
+import random
 import math
 import os
 import random
@@ -94,6 +94,10 @@ class RankLSTM(BasicRankingModel):
 		self.target_labels = []
 		self.target_weights = []
 		self.target_initial_score = []
+		with variable_scope.variable_scope("embedding_rnn_seq2seq",reuse=tf.AUTO_REUSE):
+			self.batch_embedding=tf.keras.layers.BatchNormalization(name="embedding_norm")
+			self.layer_norm_hidden=tf.keras.layers.LayerNormalization(name="layer_norm_state")
+			self.layer_norm_final=tf.keras.layers.LayerNormalization(name="layer_norm_final")
 # 		for i in xrange(self.rank_list_size):
 # 			self.encoder_inputs.append(tf.placeholder(tf.int64, shape=[None],
 # 											name="encoder{0}".format(i)))
@@ -175,8 +179,8 @@ class RankLSTM(BasicRankingModel):
 			head_weights = []
 			for a in xrange(num_heads):
 				k = variable_scope.get_variable("AttnW_%d" % a,
-												[1, 1, attn_size, attention_vec_size])
-				hidden_features.append(nn_ops.conv2d(hidden, k, [1, 1, 1, 1], "SAME"))
+												[1, 1, attn_size, attention_vec_size]) 
+				hidden_features.append(nn_ops.conv2d(hidden, k, [1, 1, 1, 1], "SAME"))#[B,T,1,attn_vec_size]
 				k2 = variable_scope.get_variable("AttnW2_%d" % a,
 												[1, 1, attn_size, attention_vec_size])
 				hidden_features2.append(nn_ops.conv2d(hidden, k2, [1, 1, 1, 1], "SAME"))
@@ -368,16 +372,29 @@ class RankLSTM(BasicRankingModel):
 			for i in xrange(list_size):
 # 				encoder_embed.append(embedding_ops.embedding_lookup(embeddings, encoder_inputs[i]))
 				#expand encoder size
+				encoder_embed[i]=self.batch_embedding(encoder_embed[i])
 				if self.expand_embed_size > 0:
 					encoder_embed[i] =  tf.concat(axis=1, values=[encoder_embed[i], abstract(encoder_embed[i], i)])
 # 			print(len(encoder_embed),encoder_embed[0].get_shape(),"encoder_embed.get_shape()")
 			enc_cell = copy.deepcopy(cell)
-			encoder_outputs, encoder_state = tf.nn.static_rnn(enc_cell, encoder_embed[::-1], dtype=dtype)
+			ind=list(range(0,list_size))
+			random.shuffle(ind)
+# 			encoder_embed_input=[encoder_embed[i] for i in ind ]
+			encoder_embed_input=encoder_embed[::-1]
+			encoder_outputs_random, encoder_state = tf.nn.static_rnn(enc_cell, encoder_embed_input, dtype=dtype)
+# 			encoder_outputs=[None]*list_size
+# 			for i in range(list_size):
+# 				encoder_outputs[ind[i]]=encoder_outputs_random[i]     
+			encoder_outputs=encoder_outputs_random[::-1]
 # 			print(len(encoder_outputs),"encoder_outputs.get_shape()",\
 #                   encoder_state.get_shape(),"encoder_state.get_shape(),")
-			encoder_outputs=encoder_outputs[::-1]
+# 			encoder_outputs=encoder_outputs
+# 			top_states = [tf.reshape(self.layer_norm_hidden(e), [-1, 1, cell.output_size])
+# 						for e in encoder_outputs]
+# 			encoder_state=self.layer_norm_final(encoder_state)
 			top_states = [tf.reshape(e, [-1, 1, cell.output_size])
 						for e in encoder_outputs]
+			encoder_state=encoder_state
 						#for e in encoder_embed]
 # 			print(len(top_states),top_states[0].get_shape(),"top_states[0].get_shape()")
 			attention_states = tf.concat(axis=1, values=top_states)
