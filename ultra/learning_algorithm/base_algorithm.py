@@ -113,17 +113,13 @@ class BaseAlgorithm(ABC):
             PAD_embed = tf.zeros([1,self.feature_size],dtype=tf.float32)
             letor_features = tf.concat(axis=0,values=[self.letor_features, PAD_embed])
             input_feature_list = []
-<<<<<<< HEAD:learning_algorithm/BasicAlgorithm.py
+
             if self.model==None:
 #             if True:
                 self.model = utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
             model=self.model
             
-=======
 
-            model = ultra.utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
-
->>>>>>> 10411da6e7503da263f1ce85044bd33d8430afce:ultra/learning_algorithm/base_algorithm.py
             for i in range(len(input_id_list)):
                 input_feature_list.append(tf.nn.embedding_lookup(letor_features, input_id_list[i]))
             return model.build(input_feature_list, is_training)
