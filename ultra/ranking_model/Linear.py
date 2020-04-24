@@ -2,9 +2,9 @@ from __future__ import print_function
 from __future__ import absolute_import
 import os,sys
 import tensorflow as tf
-from .BasicRankingModel import BasicRankingModel
+from ultra.ranking_model import BaseRankingModel
 
-class Linear(BasicRankingModel):
+class Linear(BaseRankingModel):
     def __init__(self, hparams_str):
         """Create the network.
     
@@ -12,7 +12,7 @@ class Linear(BasicRankingModel):
             hparams_str: (String) The hyper-parameters used to build the network.
         """
 
-        self.hparams = tf.contrib.training.HParams(
+        self.hparams = ultra.utils.hparams.HParams(
             initializer='None'                         # Set parameter initializer
         )
         self.hparams.parse(hparams_str)

@@ -1,8 +1,7 @@
 import os,sys
 import json, copy, random
-from . import data_utils
-sys.path.append("..")
-from input_layer import click_models as CM
+from ultra.utils import data_utils
+from ultra.utils import click_models as cm
 
 class BasicPropensityEstimator:
     def __init__(self, file_name=None):
@@ -184,7 +183,7 @@ def main():
     estimator = RandomizedPropensityEstimator()
     estimator.estimateParametersFromModel(click_model, train_set)
     print("Output results...")
-    output_file = output_path + '/randomized_' + click_model_json_file.split('/')[-1][:-5]
+    output_file = output_path + '/randomized_' + click_model_json_file.split('/')[-1][:-5] + '.json'
     estimator.outputEstimatorToFile(output_file)
 
 
