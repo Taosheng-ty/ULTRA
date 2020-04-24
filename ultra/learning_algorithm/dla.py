@@ -51,7 +51,7 @@ class DLA(BasicAlgorithm):
             exp_settings: (dictionary) The dictionary containing the model settings.
             forward_only: Set true to conduct prediction only, false to conduct training.
         """
-        print('Build DLA')
+        print('Building DLA')
         super(DLA, self).__init__(data_set, exp_settings, forward_only)
         self.hparams = tf.contrib.training.HParams(
             learning_rate=0.05,                 # Learning rate.
