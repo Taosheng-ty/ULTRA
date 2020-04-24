@@ -50,18 +50,11 @@ class RankLSTM(BasicRankingModel):
 # 		"""
 	def __init__(self,hparams):
 		self.hparams = tf.contrib.training.HParams(
-			learning_rate=0.1, 				# Learning rate.
-			learning_rate_decay_factor=0.8, # Learning rate decays by this much.
-			max_gradient_norm=5.0,			# Clip gradients to this norm.
-			reverse_input=True,				# Set to True for reverse input sequences.
+			input_sequence="reverse",				# Set the input sequences. "reverse","initial","random"
 			num_layers=1,					# Number of layers in the model.
 			num_heads=3,					# Number of heads in the attention strategy.
-			loss_func='attrank',			# Select Loss function
-			l2_loss=0.0,					# Set strength for L2 regularization.
 			att_strategy='add',				# Select Attention strategy
-			use_residua=False,				# Set to True for using the initial scores to compute residua.
 			use_lstm=False,					# Set to True for using LSTM cells instead of GRU cells.
-			softRank_theta=0.1,				# Set Gaussian distribution theta for softRank.
 		)
 		print("building DLCM")     
 		self.hparams.parse(hparams)
@@ -71,18 +64,7 @@ class RankLSTM(BasicRankingModel):
 # 		self.embed_size = data_set.feature_size if data_set.feature_size > 0 else 0
 		self.expand_embed_size =50
 		self.feed_previous=False
-# 		self.batch_size = batch_size
-		self.learning_rate = tf.Variable(float(self.hparams.learning_rate), trainable=False)
-		self.learning_rate_decay_op = self.learning_rate.assign(
-			self.learning_rate * self.hparams.learning_rate_decay_factor)
-		self.global_step = tf.Variable(0, trainable=False)
-		
-		output_projection = None
-
-		self.output_projection=output_projection
-		
-# 		dtype=dtypes.float32
-# 		cel=self.cell
+		self.output_projection=None
 		scope=None
 		# If we use sampled softmax, we need an output projection.
 		output_projection = None
@@ -98,27 +80,7 @@ class RankLSTM(BasicRankingModel):
 			self.batch_embedding=tf.keras.layers.BatchNormalization(name="embedding_norm")
 			self.layer_norm_hidden=tf.keras.layers.LayerNormalization(name="layer_norm_state")
 			self.layer_norm_final=tf.keras.layers.LayerNormalization(name="layer_norm_final")
-# 		for i in xrange(self.rank_list_size):
-# 			self.encoder_inputs.append(tf.placeholder(tf.int64, shape=[None],
-# 											name="encoder{0}".format(i)))
-# 		for i in xrange(self.rank_list_size):
-# 			self.target_labels.append(tf.placeholder(tf.int64, shape=[None],
-# 										name="targets{0}".format(i)))
-# 			self.target_weights.append(tf.placeholder(tf.float32, shape=[None],
-# 											name="weight{0}".format(i)))
-# 			self.target_initial_score.append(tf.placeholder(tf.float32, shape=[None],
-# 											name="initial_score{0}".format(i)))
-		# Create the internal multi-layer cell for our RNN.
 
-
-# 		self.batch_index_bias = tf.placeholder(tf.int64, shape=[None])
-# 		self.batch_expansion_mat = tf.placeholder(tf.float32, shape=[None,1])
-# 		self.batch_diag = tf.placeholder(tf.float32, shape=[None,self.rank_list_size,self.rank_list_size])
-# 		self.GO_embed = tf.get_variable("GO_embed", [1,self.embed_size + expand_embed_size],dtype=tf.float32)
-# 		self.PAD_embed = tf.get_variable("PAD_embed", [1,self.embed_size],dtype=tf.float32)
-        
-# 		self.outputs, self.state= self.embedding_rnn_seq2seq(self.encoder_inputs, self.embeddings,
-# 													 cell,	output_projection, forward_only or feed_previous)
 
 	def _extract_argmax_and_embed(self,embedding, output_projection=None,
 								 update_embedding=True):
@@ -325,18 +287,17 @@ class RankLSTM(BasicRankingModel):
 			return self.rnn_decoder(encode_embed, attention_states, initial_state, cell,
 								num_heads=num_heads, loop_function=loop_function)
 	def build_with_random_noise(self, input_list, noise_rate, is_training=False):
-			return self.build(input_list, noise_rate, is_training)
+			return self.build(input_list, is_training)
 	def build(self, encoder_embed,is_training=False):
 		"""Embedding RNN sequence-to-sequence model.
 
-		
+		encoder_embed: [batch,feature_size]*len_seq
 		"""
-		print(encoder_embed[0].get_shape(),"encoder_embed.get_shape()")
 		feed_previous=self.feed_previous
-		embed_size = encoder_embed[0].get_shape()[-1].value
+		embed_size = encoder_embed[0].get_shape()[-1].value #
 		dtype=dtypes.float32
-		output_projection=self.output_projection
-		list_size=len(encoder_embed)
+		output_projection=None
+		list_size=len(encoder_embed)#len_seq
 		with variable_scope.variable_scope("cell",reuse=tf.AUTO_REUSE):
 			single_cell = tf.contrib.rnn.GRUCell(embed_size + self.expand_embed_size)
 			double_cell = tf.contrib.rnn.GRUCell((embed_size +self.expand_embed_size) * 2)
@@ -370,55 +331,33 @@ class RankLSTM(BasicRankingModel):
 						current_size = output_sizes[i]
 					return output_data
 			for i in xrange(list_size):
-# 				encoder_embed.append(embedding_ops.embedding_lookup(embeddings, encoder_inputs[i]))
-				#expand encoder size
 				encoder_embed[i]=self.batch_embedding(encoder_embed[i])
 				if self.expand_embed_size > 0:
-					encoder_embed[i] =  tf.concat(axis=1, values=[encoder_embed[i], abstract(encoder_embed[i], i)])
-# 			print(len(encoder_embed),encoder_embed[0].get_shape(),"encoder_embed.get_shape()")
+					encoder_embed[i] =  tf.concat(axis=1, values=[encoder_embed[i], abstract(encoder_embed[i], i)]) #[batch,feature_size+expand_embed_size]*len_seq
+
 			enc_cell = copy.deepcopy(cell)
 			ind=list(range(0,list_size))
-			random.shuffle(ind)
-# 			encoder_embed_input=[encoder_embed[i] for i in ind ]
-			encoder_embed_input=encoder_embed[::-1]
-			encoder_outputs_random, encoder_state = tf.nn.static_rnn(enc_cell, encoder_embed_input, dtype=dtype)
-# 			encoder_outputs=[None]*list_size
-# 			for i in range(list_size):
-# 				encoder_outputs[ind[i]]=encoder_outputs_random[i]     
-			encoder_outputs=encoder_outputs_random[::-1]
-# 			print(len(encoder_outputs),"encoder_outputs.get_shape()",\
-#                   encoder_state.get_shape(),"encoder_state.get_shape(),")
-# 			encoder_outputs=encoder_outputs
-# 			top_states = [tf.reshape(self.layer_norm_hidden(e), [-1, 1, cell.output_size])
-# 						for e in encoder_outputs]
-# 			encoder_state=self.layer_norm_final(encoder_state)
-			top_states = [tf.reshape(e, [-1, 1, cell.output_size])
-						for e in encoder_outputs]
-			encoder_state=encoder_state
+			if self.hparams.input_sequence=="initial":
+				ind=ind
+			elif self.hparams.input_sequence=="reverse":
+				ind=ind[::-1]
+			elif self.hparams.input_sequence=="random":
+				random.shuffle(ind)
+			encoder_embed_input=[encoder_embed[i] for i in ind ]
+			encoder_outputs_some_order, encoder_state = tf.nn.static_rnn(enc_cell, encoder_embed_input, dtype=dtype)
+			encoder_outputs=[None]*list_size
+			for i in range(list_size):
+				encoder_outputs[ind[i]]=encoder_outputs_some_order[i]## back to the order of initial list.
+
+			top_states = [tf.reshape(self.layer_norm_hidden(e), [-1, 1, cell.output_size])
+						for e in encoder_outputs] ##[batch,1,encoder_out]*len_seq
+			encoder_state=self.layer_norm_final(encoder_state)####[batch,encoder_state]
+# 			top_states = [tf.reshape(e, [-1, 1, cell.output_size])
+# 						for e in encoder_outputs]  ##[]
+# 			encoder_state=encoder_state
 						#for e in encoder_embed]
-# 			print(len(top_states),top_states[0].get_shape(),"top_states[0].get_shape()")
-			attention_states = tf.concat(axis=1, values=top_states)
+			attention_states = tf.concat(axis=1, values=top_states) ##[batch,len_seq,encoder_out]
 # 			print(attention_states.get_shape(),"attention_states.get_shape()")
-			'''
-			# Concat encoder inputs with encoder outputs to form attention vector
-			input_states = [tf.reshape(e, [-1, 1, cell.output_size])
-						for e in encoder_embed]
-			input_att_states = tf.concat(1, input_states)
-			attention_states = tf.concat(2, [input_att_states, attention_states])
-			'''
-			'''
-			# Concat hidden states with encoder outputs to form attention vector
-			hidden_states = [tf.reshape(e, [-1, 1, cell.output_size])
-						for e in encoder_states]
-			hidden_att_states = tf.concat(1, hidden_states)
-			attention_states = tf.concat(2, [hidden_att_states, attention_states])
-			'''
-
-			# Decoder.
-			#GO = tf.matmul(batch_expansion_mat, self.GO_embed)
-			#decoder_embed_patched = [GO] + decoder_embed
-
-
 			if isinstance(feed_previous, bool):
 				outputs, state=self.embedding_rnn_decoder(
 					encoder_state, cell, attention_states,encoder_embed,
@@ -444,158 +383,3 @@ class RankLSTM(BasicRankingModel):
 													lambda: decoder(False))
 			print(outputs[0].get_shape(),"outputs[0].get_shape()")
 			return outputs_and_state[0]
-
-	def attrank_loss(self, output, target_indexs, target_rels, name=None):
-		loss = 600
-		with ops.name_scope(name, "attrank_loss",[output] + target_indexs + target_rels):
-			target = tf.transpose(ops.convert_to_tensor(target_rels))
-			#target = tf.nn.softmax(target)
-			#target = target / tf.reduce_sum(target,1,keep_dims=True)
-			loss = tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=target)
-		batch_size = tf.shape(target_rels[0])[0]
-		return math_ops.reduce_sum(loss) / math_ops.cast(batch_size, dtypes.float32)
-
-	def pairwise_loss(self, output, target_indexs, target_rels, name=None):
-		loss = 0
-		batch_size = tf.shape(target_rels[0])[0]
-		with ops.name_scope(name, "pairwise_loss",[output] + target_indexs + target_rels):
-			for i in xrange(batch_size):
-				for j1 in xrange(self.rank_list_size):
-					for j2 in xrange(self.rank_list_size):
-						if output[i][j1] > output[i][j2] and target_rels[i][j1] < target_rels[i][j2]:
-							loss += target_rels[i][j2] - target_rels[i][j1]
-		return loss
-
-		
-		return math_ops.reduce_sum(loss) / math_ops.cast(batch_size, dtypes.float32)
-
-	def listMLE(self, output, target_indexs, target_rels, name=None):
-		loss = None
-		with ops.name_scope(name, "listMLE",[output] + target_indexs + target_rels):
-			output = tf.nn.l2_normalize(output, 1)
-			loss = -1.0 * math_ops.reduce_sum(output,1)
-			print(loss.get_shape())
-			exp_output = tf.exp(output)
-			exp_output_table = tf.reshape(exp_output,[-1])
-			print(exp_output.get_shape())
-			print(exp_output_table.get_shape())
-			sum_exp_output = math_ops.reduce_sum(exp_output,1)
-			loss = tf.add(loss, tf.log(sum_exp_output))
-			#compute MLE
-			for i in xrange(self.rank_list_size-1):
-				idx = target_indexs[i] + tf.to_int64(self.batch_index_bias)
-				y_i = embedding_ops.embedding_lookup(exp_output_table, idx)
-				#y_i = tf.gather_nd(exp_output, idx)
-				sum_exp_output = tf.subtract(sum_exp_output, y_i)
-				loss = tf.add(loss, tf.log(sum_exp_output))
-		batch_size = tf.shape(target_rels[0])[0]
-		return math_ops.reduce_sum(loss) / math_ops.cast(batch_size, dtypes.float32)
-
-	def softRank(self, output, target_indexs, target_rels, name=None):
-		loss = None
-		batch_size = tf.shape(target_rels[0])[0]
-		theta = 0.1
-		with ops.name_scope(name, "softRank",[output] + target_indexs + target_rels):
-			output = tf.nn.l2_normalize(output, 1)
-			#compute pi_i_j
-			tmp = tf.concat(axis=1, values=[self.batch_expansion_mat for _ in xrange(self.rank_list_size)])
-			tmp_expand = tf.expand_dims(tmp, -2)
-			output_expand = tf.expand_dims(output, -2)
-			dif = tf.subtract(tf.matmul(tf.matrix_transpose(output_expand), tmp_expand),
-							tf.matmul(tf.matrix_transpose(tmp_expand), output_expand))
-			#unpacked_pi = self.integral_Guaussian(dif, theta)
-			unpacked_pi = tf.add(self.integral_Guaussian(dif, self.hparams.softRank_theta), self.batch_diag) #make diag equal to 1.0
-			#may need to unpack pi: pi_i_j is the probability that i is bigger than j
-			pi = tf.unstack(unpacked_pi, None, 1)
-			for i in xrange(self.rank_list_size):
-				pi[i] = tf.unstack(pi[i], None, 1)
-			#compute rank distribution p_j_r
-			one_zeros = tf.matmul(self.batch_expansion_mat, 
-						tf.constant([1.0]+[0.0 for r in xrange(self.rank_list_size-1)], tf.float32, [1,self.rank_list_size]))
-			#initial_value = tf.unpack(one_zeros, None, 1)
-			pr = [one_zeros for _ in xrange(self.rank_list_size)] #[i][r][None]
-			#debug_pr_1 = [one_zeros for _ in xrange(self.rank_list_size)] #[i][r][None]
-			for i in xrange(self.rank_list_size):
-				for j in xrange(self.rank_list_size):
-					#if i != j: #insert doc j
-					pr_1 = tf.pad(tf.stack(tf.unstack(pr[i], None, 1)[:-1],1), [[0,0],[1,0]], mode='CONSTANT')
-					#debug_pr_1[i] = pr_1
-						#pr_1 = tf.concat(1, [self.batch_expansion_mat*0.0, tf.unpack(pr[i], None, 1)[:-1]])
-					factor = tf.tile(tf.expand_dims(pi[i][j], -1),[1,self.rank_list_size])
-						#print(factor.get_shape())
-					pr[i] = tf.add(tf.multiply(pr[i], factor),
-									tf.multiply(pr_1, 1.0 - factor))
-						#for r in reversed(xrange(self.rank_list_size)):
-							#if r < 1:
-							#	pr[i][r] = tf.mul(pr[i][r], pi[i][j])
-							#else:
-							#	pr[i][r] = tf.add(tf.mul(pr[i][r], pi[i][j]),
-							#			tf.mul(pr[i][r-1], 1.0 - pi[i][j]))
-
-			#compute expected NDCG
-			#compute Gmax
-			Dr = tf.matmul(self.batch_expansion_mat, 
-					tf.constant([1.0/math.log(2.0+r) for r in xrange(self.rank_list_size)], tf.float32, [1,self.rank_list_size]))
-			gmaxs = []
-			for i in xrange(self.rank_list_size):
-				idx = target_indexs[i] + tf.to_int64(self.batch_index_bias)
-				g = embedding_ops.embedding_lookup(target_rels, idx)
-				gmaxs.append(g)
-			_gmax = tf.exp(tf.stack(gmaxs, 1)) * (1.0 / math.log(2))
-			Gmax = tf.reduce_sum(tf.multiply(Dr, _gmax), 1)
-			#compute E(Dr)
-			Edrs = []
-			for i in xrange(self.rank_list_size):
-				edr = tf.multiply(Dr, pr[i])
-				Edrs.append(tf.reduce_sum(edr,1))
-			#compute g(j)
-			g = tf.exp(tf.stack(target_rels, 1)) * (1.0 / math.log(2))
-			dcg = tf.multiply(g, tf.stack(Edrs, 1))
-			Edcg = tf.reduce_sum(dcg, 1)
-			Ndcg = tf.div(Edcg, Gmax)
-			#compute loss
-			loss = (Ndcg * -1.0 + 1) * 10
-		return math_ops.reduce_sum(loss) / math_ops.cast(batch_size, dtypes.float32)#, pi, pr, Ndcg]
-
-	def integral_Guaussian(self, mu, theta):
-		a = -4.0/math.sqrt(2.0*math.pi)/theta
-		exp_mu = tf.exp(a * mu)
-		ig = tf.div(exp_mu, exp_mu + 1) * -1.0 + 1
-		return ig
-	def clip_by_each_value(self, t_list, clip_max_value = None, clip_min_value = None, name=None):
-		if (not isinstance(t_list, collections.Sequence)
-			or isinstance(t_list, six.string_types)):
-			raise TypeError("t_list should be a sequence")
-		t_list = list(t_list)
-
-		with ops.name_scope(name, "clip_by_each_value",t_list + [clip_norm]) as name:
-			values = [
-					ops.convert_to_tensor(
-							t.values if isinstance(t, ops.IndexedSlices) else t,
-							name="t_%d" % i)
-					if t is not None else t
-					for i, t in enumerate(t_list)]
-
-			values_clipped = []
-			for i, v in enumerate(values):
-				if v is None:
-					values_clipped.append(None)
-				else:
-					t = None
-					if clip_value_max != None:
-						t = math_ops.minimum(v, clip_value_max)
-					if clip_value_min != None:
-						t = math_ops.maximum(t, clip_value_min, name=name)
-					with ops.colocate_with(t):
-						values_clipped.append(
-								tf.identity(t, name="%s_%d" % (name, i)))
-
-			list_clipped = [
-					ops.IndexedSlices(c_v, t.indices, t.dense_shape)
-					if isinstance(t, ops.IndexedSlices)
-					else c_v
-					for (c_v, t) in zip(values_clipped, t_list)]
-
-		return list_clipped
-
-

@@ -5,3 +5,4 @@ from .DNN import *
 from .Linear import *
 from .DLCM import *
 from .Transformer import *
+from .Setrank import *

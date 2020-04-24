@@ -40,6 +40,7 @@ class NavieAlgorithm(BasicAlgorithm):
             l2_loss=0.0,                    # Set strength for L2 regularization.
             grad_strategy='ada',            # Select gradient strategy
         )
+        super(NavieAlgorithm, self).__init__(data_set, exp_settings, forward_only)
         print(exp_settings['learning_algorithm_hparams'])
         self.hparams.parse(exp_settings['learning_algorithm_hparams'])
         self.exp_settings = exp_settings

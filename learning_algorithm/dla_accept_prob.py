@@ -114,7 +114,7 @@ class Dla_accept_prob(BasicAlgorithm):
         self.rank_list_size = exp_settings['train_list_cutoff']
         train_output = self.ranking_model(self.rank_list_size, scope='ranking_model')
 #         train_output = self.output[:,:self.rank_list_size]
-        self.propensity = self.DenoisingNet(self.rank_list_size, forward_only)
+        self.propensity = self.DenoisingNet(self.rank_list_size, False)
         train_labels = self.labels[:self.rank_list_size]
         evaluate_clicks=self.clicks[:self.rank_list_size]
         reshaped_evaluate_clicks = tf.transpose(tf.convert_to_tensor(evaluate_clicks))
@@ -192,7 +192,9 @@ class Dla_accept_prob(BasicAlgorithm):
     def separate_gradient_update(self):
         denoise_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "denoising_model")
         ranking_model_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "ranking_model")
-        print(ranking_model_params,"ranking_model_params")
+        all_ranking_model_params = tf.get_collection(tf.GraphKeys.VARIABLES, "ranking_model")
+        print(ranking_model_params,"ranking_model_params_training")
+        print(all_ranking_model_params,"all_ranking_model_params")
         self.weighs_propen=denoise_params
         if self.hparams.l1_loss > 0:
             for p in denoise_params:
@@ -285,8 +287,10 @@ class Dla_accept_prob(BasicAlgorithm):
                             self.global_step,
                            self.ipw,
                            self.click_metrics,
-                          
+#                           self.model.layer_norm[0].beta,
                             self.train_summary # Summarize statistics.
+                          
+                
                             ]
             outputs = session.run(output_feed, input_feed)
         else:
