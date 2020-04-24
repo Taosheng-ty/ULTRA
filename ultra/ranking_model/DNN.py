@@ -13,19 +13,12 @@ class DNN(BaseRankingModel):
         Args:
             hparams_str: (String) The hyper-parameters used to build the network.
         """
-<<<<<<< HEAD:ultra/ranking_model/DNN.py
         print("build DNN")
         self.hparams = tf.contrib.training.HParams(
             hidden_layer_sizes=[512, 256, 128],        # Number of neurons in each layer of a ranking_model. 
+            activation_func='elu',
             initializer='None',                         # Set parameter initializer
             norm="batch"
-=======
-
-        self.hparams = ultra.utils.hparams.HParams(
-            hidden_layer_sizes=[512, 256, 128],        # Number of neurons in each layer of a ranking_model. 
-            activation_func='elu',                     # Type for activation function, which could be elu, relu, sigmoid, or tanh
-            initializer='None'                         # Set parameter initializer
->>>>>>> 10411da6e7503da263f1ce85044bd33d8430afce:ultra/ranking_model/DNN.py
         )
         self.hparams.parse(hparams_str)
         self.initializer = None
@@ -78,13 +71,8 @@ class DNN(BaseRankingModel):
 
                 # Add activation if it is a hidden layer
                 if j != len(output_sizes)-1:
-<<<<<<< HEAD:ultra/ranking_model/DNN.py
-                    output_data = tf.nn.elu(output_data)
-#                     if j!=0:
-#                         output_data+=output_data_orig
-=======
                     output_data = self.act_func(output_data)
->>>>>>> 10411da6e7503da263f1ce85044bd33d8430afce:ultra/ranking_model/DNN.py
+
                 current_size = output_sizes[j]
             output=tf.split(output_data, len(input_list), axis=0)
 #             out=tf.concat(output,axis=1)
