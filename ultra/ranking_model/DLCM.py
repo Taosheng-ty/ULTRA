@@ -47,7 +47,6 @@ linear = core_rnn_cell._linear
 class RankLSTM(BaseRankingModel):
 # 	def __init__(self,data_set, exp_settings, forward_only):
 # 		"""Create the model.
-
 # 		"""
 	def __init__(self,hparams):
 		self.hparams = tf.contrib.training.HParams(
