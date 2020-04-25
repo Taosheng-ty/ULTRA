@@ -71,6 +71,10 @@ class DNN(BaseRankingModel):
 
                 # Add activation if it is a hidden layer
                 if j != len(output_sizes)-1:
+#                     if j!=0:
+#                         output_data+=output_data_orig
+
+
                     output_data = self.act_func(output_data)
 
                 current_size = output_sizes[j]

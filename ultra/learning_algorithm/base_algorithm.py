@@ -115,10 +115,10 @@ class BaseAlgorithm(ABC):
             input_feature_list = []
 
             if self.model==None:
-#             if True:
                 self.model = utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
             model=self.model
-            
+#             model = ultra.utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
+
 
             for i in range(len(input_id_list)):
                 input_feature_list.append(tf.nn.embedding_lookup(letor_features, input_id_list[i]))

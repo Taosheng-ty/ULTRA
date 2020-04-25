@@ -7,8 +7,6 @@ from .base_ranking_model import *
 from .DLCM import *
 from .Transformer import *
 from .Setrank import *
-# from __future__ import absolute_import
-
 from .DNN import *
 from .Linear import *
 
