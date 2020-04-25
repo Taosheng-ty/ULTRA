@@ -13,13 +13,11 @@ import sys
 import tensorflow as tf
 import tensorflow_ranking as tfr
 from tensorflow import dtypes
+from ultra.learning_algorithm.base_algorithm import BaseAlgorithm
+import ultra.utils
 
-from .BasicAlgorithm import BasicAlgorithm
-sys.path.append("..")
-import utils
-
-class NavieAlgorithm(BasicAlgorithm):
-    """The input_layer class that directly trains ranking models with clicks.
+class NavieAlgorithm(BaseAlgorithm):
+    """The navie algorithm that directly trains ranking models with input labels.
 
     """
 
@@ -33,7 +31,7 @@ class NavieAlgorithm(BasicAlgorithm):
         """
         print('Build NavieAlgorithm')
 
-        self.hparams = tf.contrib.training.HParams(
+        self.hparams = ultra.utils.hparams.HParams(
             learning_rate=0.05,                 # Learning rate.
             max_gradient_norm=5.0,            # Clip gradients to this norm.
             loss_func='softmax_cross_entropy',            # Select Loss function
@@ -70,7 +68,7 @@ class NavieAlgorithm(BasicAlgorithm):
         pad_removed_output = self.remove_padding_for_metric_eval(self.docid_inputs, self.output)
         for metric in self.exp_settings['metrics']:
             for topn in self.exp_settings['metrics_topn']:
-                metric_value = utils.make_ranking_metric_fn(metric, topn)(reshaped_labels, pad_removed_output, None)
+                metric_value = ultra.utils.make_ranking_metric_fn(metric, topn)(reshaped_labels, pad_removed_output, None)
                 tf.summary.scalar('%s_%d' % (metric, topn), metric_value, collections=['eval'])
 
         if not forward_only:
@@ -78,19 +76,30 @@ class NavieAlgorithm(BasicAlgorithm):
             self.rank_list_size = exp_settings['train_list_cutoff']
             train_output = self.ranking_model(self.rank_list_size, scope='ranking_model')
             train_labels = self.labels[:self.rank_list_size]
+
+            tf.summary.scalar('Max_output_score', tf.reduce_max(train_output), collections=['train'])
+            tf.summary.scalar('Min_output_score', tf.reduce_min(train_output), collections=['train'])
+
             reshaped_train_labels = tf.transpose(tf.convert_to_tensor(train_labels)) # reshape from [rank_list_size, ?] to [?, rank_list_size]
+            pad_removed_train_output = self.remove_padding_for_metric_eval(self.docid_inputs, train_output)
+
+            tf.summary.scalar('Max_output_score_without_pad', tf.reduce_max(pad_removed_train_output), collections=['train'])
+            tf.summary.scalar('Min_output_score_without_pad', tf.reduce_min(pad_removed_train_output), collections=['train'])
 
             self.loss = None
             if self.hparams.loss_func == 'sigmoid_cross_entropy':
-                self.loss = self.sigmoid_loss(train_output, reshaped_train_labels)
+                self.loss = self.sigmoid_loss(pad_removed_train_output, reshaped_train_labels)
             elif self.hparams.loss_func == 'pairwise_loss':
-                self.loss = self.pairwise_loss(train_output, reshaped_train_labels)
+                self.loss = self.pairwise_loss(pad_removed_train_output, reshaped_train_labels)
             else:
-                self.loss = self.softmax_loss(train_output, reshaped_train_labels)
+                self.loss = self.softmax_loss(pad_removed_train_output, reshaped_train_labels)
             params = tf.trainable_variables()
             if self.hparams.l2_loss > 0:
+                loss_l2 = 0.0
                 for p in params:
-                    self.loss += self.hparams.l2_loss * tf.nn.l2_loss(p)
+                    loss_l2 += tf.nn.l2_loss(p)
+                tf.summary.scalar('L2 Loss', tf.reduce_mean(loss_l2), collections=['train'])
+                self.loss += self.hparams.l2_loss * loss_l2
 
             # Select optimizer
             self.optimizer_func = tf.train.AdagradOptimizer
@@ -115,7 +124,7 @@ class NavieAlgorithm(BasicAlgorithm):
             pad_removed_train_output = self.remove_padding_for_metric_eval(self.docid_inputs, train_output)
             for metric in self.exp_settings['metrics']:
                 for topn in self.exp_settings['metrics_topn']:
-                    metric_value = utils.make_ranking_metric_fn(metric, topn)(reshaped_train_labels, pad_removed_train_output, None)
+                    metric_value = ultra.utils.make_ranking_metric_fn(metric, topn)(reshaped_train_labels, pad_removed_train_output, None)
                     tf.summary.scalar('%s_%d' % (metric, topn), metric_value, collections=['train'])
             
         self.train_summary = tf.summary.merge_all(key='train')

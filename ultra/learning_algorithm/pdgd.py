@@ -22,16 +22,14 @@ import copy
 import itertools
 from six.moves import zip
 from tensorflow import dtypes
+from ultra.learning_algorithm.base_algorithm import BaseAlgorithm
+import ultra.utils
 
-from .BasicAlgorithm import BasicAlgorithm
-sys.path.append("..")
-import utils
-
-class PDGD(BasicAlgorithm):
+class PDGD(BaseAlgorithm):
     """The Pairwise Differentiable Gradient Descent (PDGD) algorithm for unbiased learning to rank.
 
     This class implements the Pairwise Differentiable Gradient Descent (PDGD) algorithm based on the input layer 
-    feed. See the following paper for more information on the simulation data.
+    feed. See the following paper for more information on the algorithm.
     
     * Oosterhuis, Harrie, and Maarten de Rijke. "Differentiable unbiased online learning to rank." In Proceedings of the 27th ACM International Conference on Information and Knowledge Management, pp. 1293-1302. ACM, 2018.
     
@@ -47,7 +45,7 @@ class PDGD(BasicAlgorithm):
         """
         print('Build Pairwise Differentiable Gradient Descent (PDGD) algorithm.')
 
-        self.hparams = tf.contrib.training.HParams(
+        self.hparams = ultra.utils.hparams.HParams(
             learning_rate=0.05,                 # Learning rate (\mu).
             tau=1,                             # Scalar for the probability distribution.
             max_gradient_norm=1.0,            # Clip gradients to this norm.
@@ -82,7 +80,7 @@ class PDGD(BasicAlgorithm):
         pad_removed_output = self.remove_padding_for_metric_eval(self.docid_inputs, self.output)
         for metric in self.exp_settings['metrics']:
             for topn in self.exp_settings['metrics_topn']:
-                metric_value = utils.make_ranking_metric_fn(metric, topn)(reshaped_labels, pad_removed_output, None)
+                metric_value = ultra.utils.make_ranking_metric_fn(metric, topn)(reshaped_labels, pad_removed_output, None)
                 tf.summary.scalar('%s_%d' % (metric, topn), metric_value, collections=['eval'])
                 
         # Build model
@@ -94,7 +92,7 @@ class PDGD(BasicAlgorithm):
             pad_removed_output = self.remove_padding_for_metric_eval(self.docid_inputs, self.train_output)
             for metric in self.exp_settings['metrics']:
                 for topn in self.exp_settings['metrics_topn']:
-                    metric_value = utils.make_ranking_metric_fn(metric, topn)(reshaped_train_labels, pad_removed_output, None)
+                    metric_value = ultra.utils.make_ranking_metric_fn(metric, topn)(reshaped_train_labels, pad_removed_output, None)
                     tf.summary.scalar('%s_%d' % (metric, topn), metric_value, collections=['train_eval'])
 
             # Build training pair inputs only when it is training

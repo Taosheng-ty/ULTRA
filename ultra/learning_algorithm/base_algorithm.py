@@ -13,12 +13,10 @@ import sys
 import tensorflow as tf
 import tensorflow_ranking as tfr
 from abc import ABC, abstractmethod
-from . import ranking_model
 
-sys.path.append("..")
-import utils
+import ultra.utils
 
-class BasicAlgorithm(ABC):
+class BaseAlgorithm(ABC):
     """The basic class that contains all the API needed for the 
         implementation of an unbiased learning to rank algorithm.
 
@@ -115,11 +113,14 @@ class BasicAlgorithm(ABC):
             PAD_embed = tf.zeros([1,self.feature_size],dtype=tf.float32)
             letor_features = tf.concat(axis=0,values=[self.letor_features, PAD_embed])
             input_feature_list = []
+
             if self.model==None:
 #             if True:
                 self.model = utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
             model=self.model
-            
+
+#             model = ultra.utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
+
             for i in range(len(input_id_list)):
                 input_feature_list.append(tf.nn.embedding_lookup(letor_features, input_id_list[i]))
             return model.build(input_feature_list, is_training)
@@ -143,7 +144,7 @@ class BasicAlgorithm(ABC):
             letor_features = tf.concat(axis=0,values=[self.letor_features, PAD_embed])
             input_feature_list = []
 
-            model = utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
+            model = ultra.utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
 
             for i in range(len(input_id_list)):
                 input_feature_list.append(tf.nn.embedding_lookup(letor_features, input_id_list[i]))

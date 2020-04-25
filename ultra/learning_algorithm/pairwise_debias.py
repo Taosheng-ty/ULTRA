@@ -22,10 +22,8 @@ import copy
 import itertools
 from six.moves import zip
 from tensorflow import dtypes
-
-from .BasicAlgorithm import BasicAlgorithm
-sys.path.append("..")
-import utils
+from ultra.learning_algorithm.base_algorithm import BaseAlgorithm
+import ultra.utils
 
 
 def get_bernoulli_sample(probs):
@@ -40,11 +38,11 @@ def get_bernoulli_sample(probs):
         """
     return tf.ceil(probs - tf.random_uniform(tf.shape(probs)))
 
-class PairDebias(BasicAlgorithm):
+class PairDebias(BaseAlgorithm):
     """The Pairwise Debiasing algorithm for unbiased learning to rank.
 
     This class implements the Pairwise Debiasing algorithm based on the input layer 
-    feed. See the following paper for more information.
+    feed. See the following paper for more information on the algorithm.
     
     * Hu, Ziniu, Yang Wang, Qu Peng, and Hang Li. "Unbiased LambdaMART: An Unbiased Pairwise Learning-to-Rank Algorithm." In The World Wide Web Conference, pp. 2830-2836. ACM, 2019.
     
@@ -60,7 +58,7 @@ class PairDebias(BasicAlgorithm):
         """
         print('Build Pairwise Debiasing algorithm.')
 
-        self.hparams = tf.contrib.training.HParams(
+        self.hparams = ultra.utils.hparams.HParams(
             EM_step_size=0.05,                  # Step size for EM algorithm.
             learning_rate=0.005,                 # Learning rate.
             max_gradient_norm=5.0,            # Clip gradients to this norm.
@@ -95,7 +93,7 @@ class PairDebias(BasicAlgorithm):
         pad_removed_output = self.remove_padding_for_metric_eval(self.docid_inputs, self.output)
         for metric in self.exp_settings['metrics']:
             for topn in self.exp_settings['metrics_topn']:
-                metric_value = utils.make_ranking_metric_fn(metric, topn)(reshaped_labels, pad_removed_output, None)
+                metric_value = ultra.utils.make_ranking_metric_fn(metric, topn)(reshaped_labels, pad_removed_output, None)
                 tf.summary.scalar('%s_%d' % (metric, topn), metric_value, collections=['eval'])
 
         # Build unbiased pairwise loss only when it is training
@@ -170,7 +168,7 @@ class PairDebias(BasicAlgorithm):
             pad_removed_train_output = self.remove_padding_for_metric_eval(self.docid_inputs, train_output)
             for metric in self.exp_settings['metrics']:
                 for topn in self.exp_settings['metrics_topn']:
-                    metric_value = utils.make_ranking_metric_fn(metric, topn)(reshaped_train_labels, pad_removed_train_output, None)
+                    metric_value = ultra.utils.make_ranking_metric_fn(metric, topn)(reshaped_train_labels, pad_removed_train_output, None)
                     tf.summary.scalar('%s_%d' % (metric, topn), metric_value, collections=['train'])
         
 

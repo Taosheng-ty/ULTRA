@@ -17,14 +17,14 @@ import sys
 import time
 import json
 import numpy as np
-from .BasicInputFeed import BasicInputFeed
-from . import click_models as cm
+from ultra.input_layer import BaseInputFeed
+from ultra.utils import click_models as cm
 
 import tensorflow as tf
 # We disable pylint because we need python3 compatibility.
 from six.moves import zip     # pylint: disable=redefined-builtin
 
-class StochasticOnlineSimulationFeed(BasicInputFeed):
+class StochasticOnlineSimulationFeed(BaseInputFeed):
     """Simulate online learning to rank and click data based on human annotations.
 
     This class implements a input layer for online learning to rank experiments
@@ -41,7 +41,7 @@ class StochasticOnlineSimulationFeed(BasicInputFeed):
             hparam_str: the hyper-parameters for the input layer.
             session: the current tensorflow Session (used for online learning).
         """
-        self.hparams = tf.contrib.training.HParams(
+        self.hparams = ultra.utils.hparams.HParams(
             click_model_json='./example/ClickModel/pbm_0.1_1.0_4_1.0.json', # the setting file for the predefined click models.
             tau=1,                                                          # Scalar for the probability distribution.
             oracle_mode=False,                                              # Set True to feed relevance labels instead of simulated clicks.

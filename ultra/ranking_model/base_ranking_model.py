@@ -8,7 +8,43 @@ from abc import ABC, abstractmethod
 import os,sys
 import tensorflow as tf
 
-class BasicRankingModel(ABC):
+def selu(x):
+    """ Create the scaled exponential linear unit (SELU) activation function. More information can be found in
+            Klambauer, G., Unterthiner, T., Mayr, A. and Hochreiter, S., 2017. Self-normalizing neural networks. In Advances in neural information processing systems (pp. 971-980).
+        
+        Args:
+            x: (tf.Tensor) A tensor containing a set of numbers
+        
+        Returns:
+            The tf.Tensor produced by applying SELU on each element in x.
+        """
+    with tf.name_scope('selu') as scope:
+        alpha = 1.6732632423543772848170429916717
+        scale = 1.0507009873554804934193349852946
+        return scale*tf.where(x>=0.0, x, alpha*tf.nn.elu(x))
+
+class ActivationFunctions(object):
+  """Activation Functions key strings."""
+
+  ELU = 'elu'
+
+  RELU = 'relu'
+
+  SELU = 'selu'
+
+  TANH = 'tanh'
+
+  SIGMOID = 'sigmoid'
+
+class BaseRankingModel(ABC):
+
+    ACT_FUNC_DIC = {
+        ActivationFunctions.ELU: tf.nn.elu,
+        ActivationFunctions.RELU: tf.nn.relu,
+        ActivationFunctions.SELU: selu,
+        ActivationFunctions.TANH: tf.nn.tanh,
+        ActivationFunctions.SIGMOID: tf.nn.sigmoid
+    }
 
     @abstractmethod
     def __init__(self, hparams_str):
@@ -49,8 +85,3 @@ class BasicRankingModel(ABC):
         """
         pass
 
-def selu(x):
-    with tf.name_scope('selu') as scope:
-        alpha = 1.6732632423543772848170429916717
-        scale = 1.0507009873554804934193349852946
-        return scale*tf.where(x>=0.0, x, alpha*tf.nn.elu(x))
