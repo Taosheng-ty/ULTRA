@@ -14,11 +14,10 @@ import tensorflow as tf
 import tensorflow_ranking as tfr
 from tensorflow import dtypes
 
-from .BasicAlgorithm import BasicAlgorithm
-sys.path.append("..")
-import utils
+from ultra.learning_algorithm.base_algorithm import BaseAlgorithm
+import ultra.utils as utils
 
-class NavieAlgorithm(BasicAlgorithm):
+class NavieAlgorithm(BaseAlgorithm):
     """The input_layer class that directly trains ranking models with clicks.
 
     """

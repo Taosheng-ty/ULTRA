@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import os,sys
 import random
 import tensorflow as tf
-from .BasicRankingModel import BasicRankingModel
+from ultra.ranking_model import BaseRankingModel
 ## Before changes we can get around 0.748 ndcg@10
 
 class MultiHeadAttention(tf.keras.layers.Layer):
@@ -275,7 +275,7 @@ def scaled_dot_product_attention(q, k, v, mask=None,is_training=True,collect=Non
 #     return output, attention_weights
 
 
-class Setrank(BasicRankingModel):
+class Setrank(BaseRankingModel):
     def __init__(self, hparams_str):
         """Create the network.
     

@@ -14,7 +14,7 @@ import tensorflow as tf
 import tensorflow_ranking as tfr
 from abc import ABC, abstractmethod
 
-import ultra.utils
+import ultra.utils as utils
 
 class BaseAlgorithm(ABC):
     """The basic class that contains all the API needed for the 

@@ -24,16 +24,13 @@ from six.moves import zip
 from tensorflow import dtypes
 
 from . import ranking_model
-
-from .BasicAlgorithm import BasicAlgorithm
-sys.path.append("..")
-import utils
-
+from ultra.learning_algorithm.base_algorithm import BaseAlgorithm
+import ultra.utils as utils
 
 def sigmoid_prob(logits):
     return tf.sigmoid(logits - tf.reduce_mean(logits, -1, keep_dims=True))
 
-class DLA(BasicAlgorithm):
+class DLA(BaseAlgorithm):
     """The Dual Learning Algorithm for unbiased learning to rank.
 
     This class implements the Dual Learning Algorithm (DLA) based on the input layer 
@@ -62,6 +59,7 @@ class DLA(BasicAlgorithm):
             ranker_loss_weight=1.0,            # Set the weight of unbiased ranking loss
             l2_loss=0.0,                    # Set strength for L2 regularization.
             l1_loss=0.0,
+            clicks=False,
             max_propensity_weight = -1,      # Set maximum value for propensity weights
             constant_propensity_initialization = False, # Set true to initialize propensity with constants.
             grad_strategy='ada',            # Select gradient strategy
@@ -117,7 +115,8 @@ class DLA(BasicAlgorithm):
         reshaped_evaluate_clicks = tf.transpose(tf.convert_to_tensor(evaluate_clicks))
         self.valid_click_metrics=self.click_loglikelihood(reshaped_evaluate_clicks,\
                                                  self.propensity,train_output)
-        tf.summary.scalar('%s' % ("click likelyhood"), self.valid_click_metrics, collections=['eval'])
+        if self.hparams.clicks:
+            tf.summary.scalar('%s' % ("click likelyhood"), self.valid_click_metrics, collections=['eval'])
         if not forward_only:
             print('Loss Function is ' + self.hparams.loss_func)
             # Select loss function
@@ -139,7 +138,8 @@ class DLA(BasicAlgorithm):
             self.ipw=[]
             self.click_metrics=self.click_loglikelihood(reshaped_train_labels,\
                                                      self.propensity,train_output)
-            tf.summary.scalar('click_metrics',self.click_metrics,collections=['train'])
+            if self.hparams.clicks:
+                tf.summary.scalar('click_metrics',self.click_metrics,collections=['train'])
             for i in range(len(pw_list)):
                 tf.summary.scalar('Inverse Propensity weights %d' % i, tf.reduce_mean(pw_list[i]), collections=['train'])
                 self.ipw.append(tf.reduce_mean(pw_list[i]))
@@ -150,7 +150,8 @@ class DLA(BasicAlgorithm):
             self.exam_loss = self.loss_func(self.propensity, reshaped_train_labels, self.relevance_weights)
             self.click_metrics=self.click_loglikelihood(reshaped_train_labels,\
                                                  self.propensity,train_output)
-            tf.summary.scalar('click_metrics',self.click_metrics,collections=['train'])
+            if self.hparams.clicks:
+                tf.summary.scalar('click_metrics',self.click_metrics,collections=['train'])
             rw_list = tf.unstack(self.relevance_weights, axis=1) # Compute propensity weights
             for i in range(len(rw_list)):
                 tf.summary.scalar('Relevance weights %d' % i, tf.reduce_mean(rw_list[i]), collections=['train'])
@@ -281,7 +282,7 @@ class DLA(BasicAlgorithm):
                             self.weighs_propen,
                             self.global_step,
                            self.ipw,
-                           self.click_metrics,
+#                            self.click_metrics,
                           
                             self.train_summary # Summarize statistics.
                             ]
@@ -291,13 +292,13 @@ class DLA(BasicAlgorithm):
             output_feed = [
                         self.eval_summary, # Summarize statistics.
                         self.output  , # Model outputs
-                self.clicks[:8]
+#                 self.clicks[:8]
             ]    
 
             outputs = session.run(output_feed, input_feed)
         if not forward_only:
-            if outputs[3]%50==0:
-                print(outputs[2],outputs[3],"global step",outputs[4],outputs[5])
+#             if outputs[3]%50==0:
+#                 print(outputs[2],outputs[3],"global step",outputs[4],outputs[5])
             return outputs[1], None, outputs[-1]    # loss, no outputs, summary.
         else:
 #             print( outputs[2],"out from sess run")

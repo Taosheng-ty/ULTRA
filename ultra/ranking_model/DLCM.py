@@ -20,7 +20,7 @@ import tensorflow as tf
 # We disable pylint because we need python3 compatibility.
 from six.moves import xrange# pylint: disable=redefined-builtin
 from six.moves import zip	 # pylint: disable=redefined-builtin
-from .BasicRankingModel import BasicRankingModel
+from ultra.ranking_model import BaseRankingModel
 import copy
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
@@ -43,7 +43,7 @@ from tensorflow.python.util import nest
 # TODO(ebrevdo): Remove once _linear is fully deprecated.
 #linear = rnn_cell_impl._linear  # pylint: disable=protected-access
 linear = core_rnn_cell._linear 
-class RankLSTM(BasicRankingModel):
+class RankLSTM(BaseRankingModel):
 # 	def __init__(self,data_set, exp_settings, forward_only):
 # 		"""Create the model.
 
