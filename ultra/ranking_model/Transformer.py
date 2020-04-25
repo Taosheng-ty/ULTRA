@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import os,sys
 import tensorflow as tf
 from .BasicRankingModel import BasicRankingModel
-## Before changes we can get around 0.748 ndcg@10
+## encodr part the transformer is borrowed from https://www.tensorflow.org/tutorials/text/transformer
 class MultiHeadAttention(tf.keras.layers.Layer):
         def __init__(self, d_model, num_heads):
             super(MultiHeadAttention, self).__init__()
