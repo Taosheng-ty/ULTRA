@@ -23,17 +23,14 @@ import itertools
 from six.moves import zip
 from tensorflow import dtypes
 
-from . import ranking_model
-
-from .BasicAlgorithm import BasicAlgorithm
-sys.path.append("..")
-import utils
+from ultra.learning_algorithm.base_algorithm import BaseAlgorithm
+import ultra.utils as utils
 
 
 def sigmoid_prob(logits):
     return tf.sigmoid(logits - tf.reduce_mean(logits, -1, keep_dims=True))
 
-class DLA_types(BasicAlgorithm):
+class DLA_types(BaseAlgorithm):
     """The Dual Learning Algorithm for unbiased learning to rank.
 
     This class implements the Dual Learning Algorithm (DLA) based on the input layer 
@@ -69,7 +66,7 @@ class DLA_types(BasicAlgorithm):
         print(exp_settings['learning_algorithm_hparams'])
         self.hparams.parse(exp_settings['learning_algorithm_hparams'])
         self.exp_settings = exp_settings
-
+        self.model=None
         self.max_candidate_num = exp_settings['max_candidate_num']
         self.feature_size = data_set.feature_size
         if self.hparams.ranker_learning_rate < 0:

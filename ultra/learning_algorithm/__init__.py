@@ -1,7 +1,6 @@
 # note:
 from __future__ import absolute_import
 from .base_algorithm import *
-from .ranking_model import *
 from .dla import *
 from .ipw_rank import *
 from .regression_EM import *
@@ -15,4 +14,7 @@ from .dla_types import *
 from .dla_accept_prob import *
 from .dbgd_interleave import *
 
-
+def list_available() -> list:
+    from .base_algorithm import BaseAlgorithm
+    from ultra.utils.sys_tools import list_recursive_concrete_subclasses
+    return list_recursive_concrete_subclasses(BaseAlgorithm)

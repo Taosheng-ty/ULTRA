@@ -23,7 +23,6 @@ import itertools
 from six.moves import zip
 from tensorflow import dtypes
 
-from . import ranking_model
 from ultra.learning_algorithm.base_algorithm import BaseAlgorithm
 import ultra.utils as utils
 

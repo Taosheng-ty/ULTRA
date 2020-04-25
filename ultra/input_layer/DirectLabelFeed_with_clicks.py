@@ -17,13 +17,14 @@ import sys
 import time
 import json
 import numpy as np
-from .BasicInputFeed import BasicInputFeed
-from . import click_models as cm
+from ultra.input_layer import BaseInputFeed
+from ultra.utils import click_models as cm
+import ultra.utils as utils
 import tensorflow as tf
 # We disable pylint because we need python3 compatibility.
 from six.moves import zip     # pylint: disable=redefined-builtin
 
-class DirectLabelFeed_with_clicks(BasicInputFeed):
+class DirectLabelFeed_with_clicks(BaseInputFeed):
     """Feed data with human annotations.
 
     This class implements a input layer for unbiased learning to rank experiments

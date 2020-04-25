@@ -2,7 +2,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 import os,sys
 import tensorflow as tf
-from .BasicRankingModel import BasicRankingModel
+from ultra.ranking_model import BaseRankingModel
 ## encodr part the transformer is borrowed from https://www.tensorflow.org/tutorials/text/transformer
 class MultiHeadAttention(tf.keras.layers.Layer):
         def __init__(self, d_model, num_heads):
@@ -172,7 +172,7 @@ def scaled_dot_product_attention(q, k, v, mask,collec):
 #         attention_weights=attention_weights*scaled_attention_weights_betwq
         output = tf.matmul(attention_weights, v)  # (..., seq_len_q, depth_v)
         return output, attention_weights
-class Transformer(BasicRankingModel):
+class Transformer(BaseRankingModel):
     def __init__(self, hparams_str):
         """Create the network.
     
