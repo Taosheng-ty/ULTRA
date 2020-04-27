@@ -78,7 +78,7 @@ class RankLSTM(BaseRankingModel):
 		self.target_weights = []
 		self.target_initial_score = []
 		with variable_scope.variable_scope("embedding_rnn_seq2seq",reuse=tf.AUTO_REUSE):
-			self.batch_embedding=tf.keras.layers.BatchNormalization(name="embedding_norm")
+			self.Layer_embedding=tf.keras.layers.LayerNormalization(name="embedding_norm")
 			self.layer_norm_hidden=tf.keras.layers.LayerNormalization(name="layer_norm_state")
 			self.layer_norm_final=tf.keras.layers.LayerNormalization(name="layer_norm_final")
 
@@ -332,7 +332,7 @@ class RankLSTM(BaseRankingModel):
 						current_size = output_sizes[i]
 					return output_data
 			for i in xrange(list_size):
-				encoder_embed[i]=self.batch_embedding(encoder_embed[i])
+				encoder_embed[i]=self.Layer_embedding(encoder_embed[i])
 				if self.expand_embed_size > 0:
 					encoder_embed[i] =  tf.concat(axis=1, values=[encoder_embed[i], abstract(encoder_embed[i], i)]) #[batch,feature_size+expand_embed_size]*len_seq
 # 			encoder_embed= [tf.reshape(e, [1, -1,self.expand_embed_size+embed_size])
