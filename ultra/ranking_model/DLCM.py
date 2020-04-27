@@ -69,7 +69,7 @@ class RankLSTM(BaseRankingModel):
 		scope=None
 		# If we use sampled softmax, we need an output projection.
 		output_projection = None
-		
+		self.ind_sort=None
 		# Feeds for inputs.
 		self.encoder_inputs = []
 		self.decoder_inputs = []
@@ -335,23 +335,33 @@ class RankLSTM(BaseRankingModel):
 				encoder_embed[i]=self.batch_embedding(encoder_embed[i])
 				if self.expand_embed_size > 0:
 					encoder_embed[i] =  tf.concat(axis=1, values=[encoder_embed[i], abstract(encoder_embed[i], i)]) #[batch,feature_size+expand_embed_size]*len_seq
-
+# 			encoder_embed= [tf.reshape(e, [1, -1,self.expand_embed_size+embed_size])
+# 						for e in encoder_embed]
+# 			encoder_embed = tf.concat(axis=0, values=encoder_embed)###[len_seq,batch,feature_size+expand_embed_size]
+			encoder_embed=tf.stack(encoder_embed,axis=0)###[len_seq,batch,feature_size+expand_embed_size]           
 			enc_cell = copy.deepcopy(cell)
-			ind=list(range(0,list_size))
+			ind=tf.range(0,list_size)
+			print(self.hparams.input_sequence)
 			if self.hparams.input_sequence=="initial":
 				ind=ind
 			elif self.hparams.input_sequence=="reverse":
-				ind=ind[::-1]
+				ind=tf.range(list_size-1,-1,-1)
 			elif self.hparams.input_sequence=="random":
-				random.shuffle(ind)
-			encoder_embed_input=[encoder_embed[i] for i in ind ]
-			encoder_outputs_some_order, encoder_state = tf.nn.static_rnn(enc_cell, encoder_embed_input, dtype=dtype)
-			encoder_outputs=[None]*list_size
-			for i in range(list_size):
-				encoder_outputs[ind[i]]=encoder_outputs_some_order[i]## back to the order of initial list.
-
+				ind=tf.random.shuffle(ind)
+			encoder_embed_input=tf.nn.embedding_lookup(encoder_embed,ind)###[len_seq,batch,feature_size+expand_embed_size] 
+			encoder_embed_input_list=tf.unstack(encoder_embed_input,axis=0)###[batch,feature_size+expand_embed_size]*len_seq
+			encoder_outputs_some_order, encoder_state = tf.nn.static_rnn(enc_cell, encoder_embed_input_list, dtype=dtype)
+			ind_sort=tf.argsort(ind) ## find the order of sequence
+# 			ind_sort=tf.Print(tf.argsort(ind),[tf.argsort(ind),ind],"sequence")
+			self.ind_sort=[ind_sort,ind]
+			encoder_outputs_some_order=tf.stack(encoder_outputs_some_order,axis=0)##[len_seq,batch,feature_size+expand_embed_size]
+# 			encoder_outputs=[None]*list_size
+# 			for i in range(list_size):
+# 				encoder_outputs[ind[i]]=encoder_outputs_some_order[i]## back to the order of initial list.
+			encoder_embed_output=tf.nn.embedding_lookup(encoder_outputs_some_order,ind_sort)###[len_seq,batch,feature_size+expand_embed_size] 
+			encoder_embed_output_list=tf.unstack(encoder_embed,axis=0)#[feature_size+expand_embed_size] *len_seq
 			top_states = [tf.reshape(self.layer_norm_hidden(e), [-1, 1, cell.output_size])
-						for e in encoder_outputs] ##[batch,1,encoder_out]*len_seq
+						for e in encoder_embed_output_list] ##[batch,1,encoder_out]*len_seq
 			encoder_state=self.layer_norm_final(encoder_state)####[batch,encoder_state]
 # 			top_states = [tf.reshape(e, [-1, 1, cell.output_size])
 # 						for e in encoder_outputs]  ##[]
