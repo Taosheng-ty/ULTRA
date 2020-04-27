@@ -359,7 +359,7 @@ class RankLSTM(BaseRankingModel):
 # 			for i in range(list_size):
 # 				encoder_outputs[ind[i]]=encoder_outputs_some_order[i]## back to the order of initial list.
 			encoder_embed_output=tf.nn.embedding_lookup(encoder_outputs_some_order,ind_sort)###[len_seq,batch,feature_size+expand_embed_size] 
-			encoder_embed_output_list=tf.unstack(encoder_embed,axis=0)#[feature_size+expand_embed_size] *len_seq
+			encoder_embed_output_list=tf.unstack(encoder_embed_output,axis=0)#[feature_size+expand_embed_size] *len_seq
 			top_states = [tf.reshape(self.layer_norm_hidden(e), [-1, 1, cell.output_size])
 						for e in encoder_embed_output_list] ##[batch,1,encoder_out]*len_seq
 			encoder_state=self.layer_norm_final(encoder_state)####[batch,encoder_state]
