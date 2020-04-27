@@ -18,7 +18,7 @@ class DNN(BaseRankingModel):
             hidden_layer_sizes=[512, 256, 128],        # Number of neurons in each layer of a ranking_model. 
             activation_func='elu',
             initializer='None',                         # Set parameter initializer
-            norm="batch"
+            norm="layer"
         )
         self.hparams.parse(hparams_str)
         self.initializer = None

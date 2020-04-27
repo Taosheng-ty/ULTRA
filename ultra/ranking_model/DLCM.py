@@ -69,7 +69,7 @@ class RankLSTM(BaseRankingModel):
 		scope=None
 		# If we use sampled softmax, we need an output projection.
 		output_projection = None
-		self.ind_sort=None
+		self.print_out=None
 		# Feeds for inputs.
 		self.encoder_inputs = []
 		self.decoder_inputs = []
@@ -353,7 +353,7 @@ class RankLSTM(BaseRankingModel):
 			encoder_outputs_some_order, encoder_state = tf.nn.static_rnn(enc_cell, encoder_embed_input_list, dtype=dtype)
 			ind_sort=tf.argsort(ind) ## find the order of sequence
 # 			ind_sort=tf.Print(tf.argsort(ind),[tf.argsort(ind),ind],"sequence")
-			self.ind_sort=[ind_sort,ind]
+			self.print_out=[ind_sort,ind]
 			encoder_outputs_some_order=tf.stack(encoder_outputs_some_order,axis=0)##[len_seq,batch,feature_size+expand_embed_size]
 # 			encoder_outputs=[None]*list_size
 # 			for i in range(list_size):
