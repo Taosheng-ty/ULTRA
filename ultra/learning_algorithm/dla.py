@@ -167,7 +167,8 @@ class DLA(BaseAlgorithm):
             self.separate_gradient_update()
         
             tf.summary.scalar('Gradient Norm', self.norm, collections=['train'])
-            tf.summary.scalar('Learning Rate', self.ranker_learning_rate, collections=['train'])
+            tf.summary.scalar('Learning ranker Rate', self.ranker_learning_rate, collections=['train'])
+            tf.summary.scalar('Learning propensity Rate', self.learning_rate, collections=['train'])
             tf.summary.scalar('Final Loss', tf.reduce_mean(self.loss), collections=['train'])
         
             clipped_labels = tf.clip_by_value(reshaped_train_labels, clip_value_min=0, clip_value_max=1)
@@ -281,6 +282,7 @@ class DLA(BaseAlgorithm):
                             self.weighs_propen,
                             self.global_step,
                            self.ipw,
+                           self.model.ind_sort,
 #                            self.click_metrics,
                           
                             self.train_summary # Summarize statistics.
@@ -296,7 +298,8 @@ class DLA(BaseAlgorithm):
 
             outputs = session.run(output_feed, input_feed)
         if not forward_only:
-#             if outputs[3]%50==0:
+            if outputs[3]%500==0:
+                print(outputs[-2])
 #                 print(outputs[2],outputs[3],"global step",outputs[4],outputs[5])
             return outputs[1], None, outputs[-1]    # loss, no outputs, summary.
         else:
