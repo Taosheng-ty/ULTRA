@@ -282,7 +282,7 @@ class DLA(BaseAlgorithm):
                             self.weighs_propen,
                             self.global_step,
                            self.ipw,
-                           self.model.ind_sort,
+#                            self.model.print_out,
 #                            self.click_metrics,
                           
                             self.train_summary # Summarize statistics.
@@ -298,8 +298,8 @@ class DLA(BaseAlgorithm):
 
             outputs = session.run(output_feed, input_feed)
         if not forward_only:
-            if outputs[3]%500==0:
-                print(outputs[-2])
+#             if outputs[3]%500==0:
+#                 print(outputs[-2])
 #                 print(outputs[2],outputs[3],"global step",outputs[4],outputs[5])
             return outputs[1], None, outputs[-1]    # loss, no outputs, summary.
         else:
