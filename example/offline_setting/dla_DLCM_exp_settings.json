@@ -16,5 +16,6 @@
         "mrr", "ndcg"
     ],
     "metrics_topn" : [3,5,10],
-    "objective_metric": "ndcg_10"
+    "objective_metric": "ndcg_10",
+    "train_list_cutoff":10
 }

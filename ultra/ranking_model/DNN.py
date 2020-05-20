@@ -64,7 +64,7 @@ class DNN(BaseRankingModel):
             current_size = output_data.get_shape()[-1].value
             for j in range(len(output_sizes)):
 #                 output_data = tf.compat.v1.layers.batch_normalization(output_data, training=is_training, name="batch_normalization_%d" % j)
-                output_data_orig=self.layer_norm[j](output_data,training=is_training)
+                output_data=self.layer_norm[j](output_data,training=is_training)
                 expand_W = tf.get_variable("dnn_W_%d" % j, [current_size, output_sizes[j]]) 
                 expand_b = tf.get_variable("dnn_b_%d" % j, [output_sizes[j]])
                 output_data = tf.nn.bias_add(tf.matmul(output_data, expand_W), expand_b)

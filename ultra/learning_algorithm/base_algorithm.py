@@ -114,10 +114,11 @@ class BaseAlgorithm(ABC):
             letor_features = tf.concat(axis=0,values=[self.letor_features, PAD_embed])
             input_feature_list = []
 
-            if self.model==None:
+            if hasattr(self,"model") and self.model==None:
                 self.model = utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
-            model=self.model
-#             model = ultra.utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
+                model=self.model
+            else:
+                model = ultra.utils.find_class(self.exp_settings['ranking_model'])(self.exp_settings['ranking_model_hparams'])
 
 
             for i in range(len(input_id_list)):

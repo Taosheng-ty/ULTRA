@@ -49,7 +49,7 @@ class StochasticOnlineSimulationFeed(BaseInputFeed):
             dynamic_bias_step_interval=1000,                                # Set how many steps to change eta for dynamic bias severity in training, 0.0 means no change.
         )
         
-        print('Create online simluation feed')
+        print('Create Stochastic online simluation feed')
         print(hparam_str)
         self.hparams.parse(hparam_str)
         self.click_model = None
