@@ -6,17 +6,18 @@ from ultra.ranking_model import BaseRankingModel
 from ultra.ranking_model import ActivationFunctions
 import ultra.utils
 
-class DNN(BaseRankingModel):
+class DNN_split(BaseRankingModel):
     def __init__(self, hparams_str):
         """Create the network.
     
         Args:
             hparams_str: (String) The hyper-parameters used to build the network.
         """
-        print("build DNN")
+        print("build DNN_split")
         self.hparams = tf.contrib.training.HParams(
-            hidden_layer_sizes=[512, 256, 128],        # Number of neurons in each layer of a ranking_model. 
+            hidden_layer_sizes=[640, 32, 16],        # Number of neurons in each layer of a ranking_model. 
             activation_func='elu',
+            split_head=20,
             initializer='None',                         # Set parameter initializer
             norm="layer"
         )
@@ -58,8 +59,8 @@ class DNN(BaseRankingModel):
             input_data = tf.concat(input_list, axis=0)
 #             output_data = tf.compat.v1.layers.batch_normalization(input_data, training=is_training, name="input_batch_normalization")
             print(is_training,type(is_training),"is_training,type(is_training),")
-            output_data = input_data
             output_sizes = self.hparams.hidden_layer_sizes + [1]
+            output_data = input_data
 #             output_sizes = [256]*5 + [1]
             current_size = output_data.get_shape()[-1].value
             for j in range(len(output_sizes)):
@@ -68,10 +69,17 @@ class DNN(BaseRankingModel):
                     output_data=self.layer_norm[j](output_data,training=is_training)
                 else:
                     output_data=self.layer_norm[j](output_data)
-                expand_W = tf.get_variable("dnn_W_%d" % j, [current_size, output_sizes[j]]) 
-                expand_b = tf.get_variable("dnn_b_%d" % j, [output_sizes[j]])
-                output_data = tf.nn.bias_add(tf.matmul(output_data, expand_W), expand_b)
-
+                if j==0:
+                    expand_W = tf.get_variable("dnn_W_%d" % j, [current_size, output_sizes[j]]) 
+                    expand_b = tf.get_variable("dnn_b_%d" % j, [output_sizes[j]])
+                    output_data = tf.nn.bias_add(tf.matmul(output_data, expand_W), expand_b)
+                   
+                    current_size =output_sizes[j]//self.hparams.split_head
+                    output_data=tf.reshape(output_data,(-1,self.hparams.split_head,current_size))
+                if j!=0:
+                    expand_W = tf.get_variable("dnn_W_%d" % j, [1,self.hparams.split_head,current_size])
+                    output_data=tf.reduce_sum(output_data*expand_W,-1)
+                    output_data=tf.expand_dims(output_data,-1)
                 # Add activation if it is a hidden layer
                 if j != len(output_sizes)-1:
 #                     if j!=0:
@@ -80,7 +88,7 @@ class DNN(BaseRankingModel):
 
                     output_data = self.act_func(output_data)
 
-                current_size = output_sizes[j]
+                
             output=tf.split(output_data, len(input_list), axis=0)
 #             out=tf.concat(output,axis=1)
             

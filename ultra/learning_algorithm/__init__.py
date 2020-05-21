@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 from .base_algorithm import *
 from .dla import *
+from .dla_split import *
 from .ipw_rank import *
 from .regression_EM import *
 from .pdgd import *
